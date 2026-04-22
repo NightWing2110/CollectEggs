@@ -6,7 +6,7 @@ namespace CollectEggs.Gameplay.Timer
     public class MatchTimer : MonoBehaviour
     {
         [SerializeField]
-        private float matchDurationSeconds = 20f;
+        private float matchDurationSeconds = 60f;
 
         public float RemainingSeconds { get; private set; }
         public bool IsRunning { get; private set; }

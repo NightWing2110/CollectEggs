@@ -6,8 +6,15 @@ namespace CollectEggs.Gameplay.Players
     [RequireComponent(typeof(PlayerMovement), typeof(PlayerEntity))]
     public class PlayerController : MonoBehaviour
     {
+        private enum PlayerState
+        {
+            Disabled = 0,
+            Active = 1
+        }
+
         private PlayerMovement _movement;
         private PlayerEntity _entity;
+        private PlayerState _state = PlayerState.Active;
 
         private void Awake()
         {
@@ -17,31 +24,25 @@ namespace CollectEggs.Gameplay.Players
 
         private void Update()
         {
-            if (GameManager.Instance != null && !GameManager.Instance.IsMatchRunning)
+            _state = GameManager.Instance != null && !GameManager.Instance.IsMatchRunning
+                ? PlayerState.Disabled
+                : PlayerState.Active;
+            if (_state == PlayerState.Disabled)
+            {
+                _movement.Move(Vector2.zero);
                 return;
-            var input = ReadInput4Way();
-            if (input == Vector2.zero)
-                return;
+            }
+
+            var input = ReadInput();
             _movement.Move(input);
         }
 
-        private static Vector2 ReadInput4Way()
+        private static Vector2 ReadInput()
         {
-            var hx = Input.GetAxisRaw("Horizontal");
-            var hz = Input.GetAxisRaw("Vertical");
-            var ax = Mathf.Abs(hx);
-            var az = Mathf.Abs(hz);
-            if (ax > 0.01f && az > 0.01f)
-            {
-                if (ax >= az)
-                    hz = 0f;
-                else
-                    hx = 0f;
-            }
-
-            var x = Mathf.Abs(hx) > 0.01f ? Mathf.Sign(hx) : 0f;
-            var z = Mathf.Abs(hz) > 0.01f ? Mathf.Sign(hz) : 0f;
-            return new Vector2(x, z);
+            var x = Input.GetAxisRaw("Horizontal");
+            var z = Input.GetAxisRaw("Vertical");
+            var result = new Vector2(x, z);
+            return result.sqrMagnitude > 1f ? result.normalized : result;
         }
 
         private void OnControllerColliderHit(ControllerColliderHit hit)

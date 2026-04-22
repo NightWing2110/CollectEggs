@@ -16,6 +16,8 @@ namespace CollectEggs.Gameplay.Players
 
         public void Move(Vector2 direction)
         {
+            if (direction.sqrMagnitude > 1f)
+                direction.Normalize();
             var delta = moveSpeed * Time.deltaTime;
             var motion = new Vector3(direction.x * delta, 0f, direction.y * delta);
             if (_characterController != null)

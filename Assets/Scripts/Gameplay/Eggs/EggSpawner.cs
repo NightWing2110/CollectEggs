@@ -1,4 +1,6 @@
 using CollectEggs.Gameplay.Timer;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace CollectEggs.Gameplay.Eggs
@@ -41,13 +43,24 @@ namespace CollectEggs.Gameplay.Eggs
 
         private int _spawnedEggIndex;
         private Transform _spawnRoot;
-        private Transform _player;
+        private readonly List<Transform> _players = new();
         private MatchTimer _matchTimer;
 
-        public void Initialize(Transform spawnRoot, Transform player, MatchTimer matchTimer)
+        public Vector3 SpawnBoundsMin => spawnBoundsMin;
+        public Vector3 SpawnBoundsMax => spawnBoundsMax;
+
+        public void Initialize(Transform spawnRoot, IReadOnlyList<Transform> players, MatchTimer matchTimer)
         {
             _spawnRoot = spawnRoot;
-            _player = player;
+            _players.Clear();
+            if (players != null)
+            {
+                foreach (var player in players)
+                {
+                    if (player != null)
+                        _players.Add(player);
+                }
+            }
             _matchTimer = matchTimer;
         }
 
@@ -84,19 +97,14 @@ namespace CollectEggs.Gameplay.Eggs
             return new Vector3(x, y, z);
         }
 
-        private bool IsSpawnValid(Vector3 p)
-        {
-            return HasMinDistanceFromPlayer(p) && IsOnGround(p) && IsClearOfCollisions(p);
-        }
+        private bool IsSpawnValid(Vector3 p) => HasMinDistanceFromPlayers(p) && IsOnGround(p) && IsClearOfCollisions(p);
 
-        private bool HasMinDistanceFromPlayer(Vector3 p)
+        private bool HasMinDistanceFromPlayers(Vector3 p)
         {
-            if (_player == null)
+            if (_players.Count == 0)
                 return true;
-            var pp = _player.position;
-            var dx = p.x - pp.x;
-            var dz = p.z - pp.z;
-            return dx * dx + dz * dz >= minHorizontalDistanceFromPlayer * minHorizontalDistanceFromPlayer;
+            var minDistanceSq = minHorizontalDistanceFromPlayer * minHorizontalDistanceFromPlayer;
+            return !(from player in _players where player != null select player.position into pp let dx = p.x - pp.x let dz = p.z - pp.z where dx * dx + dz * dz < minDistanceSq select dx).Any();
         }
 
         private bool IsClearOfCollisions(Vector3 p)
@@ -104,15 +112,7 @@ namespace CollectEggs.Gameplay.Eggs
             if (blockingLayer.value != 0 && Physics.CheckSphere(p, overlapCheckRadius, blockingLayer, QueryTriggerInteraction.Ignore))
                 return false;
             var hits = Physics.OverlapSphere(p, overlapCheckRadius, -1, QueryTriggerInteraction.Ignore);
-            foreach (var collider in hits)
-            {
-                if (collider == null)
-                    continue;
-                if (collider.CompareTag("Egg"))
-                    return false;
-            }
-
-            return true;
+            return hits.Where(collider => collider != null).All(collider => !collider.CompareTag("Egg"));
         }
 
         private bool IsOnGround(Vector3 p)
