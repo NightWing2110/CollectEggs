@@ -597,6 +597,7 @@ MonoBehaviour:
   playerPrefab: {fileID: 920000001, guid: 7f6e5d4c3b2a19087766554433221100, type: 3}
   spawnPosition: {x: 0, y: 1, z: 0}
   fallbackLocalPlayerId: local
+  botGridCellSize: 0.5
 --- !u!114 &860001004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -623,7 +624,7 @@ MonoBehaviour:
   groundProbeDistance: 4
   minHorizontalDistanceFromPlayer: 2.5
   maxSpawnAttempts: 48
-  initialEggCount: 10
+  initialEggCount: 20
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0

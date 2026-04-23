@@ -2,7 +2,9 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 using System.Linq;
-using CollectEggs.AI.Bots;
+using CollectEggs.Gameplay.Movement;
+using CollectEggs.Gameplay.Players.View;
+using CollectEggs.Bots;
 
 namespace CollectEggs.Gameplay.Players
 {
@@ -12,10 +14,11 @@ namespace CollectEggs.Gameplay.Players
         private string localPlayerId = "local";
 
         [SerializeField]
-        private string localDisplayName = "Local Player";
+        private string localDisplayName = "You";
 
         [SerializeField]
         private int botCount = 4;
+        // public int botCount = 4;
 
         [SerializeField]
         private float botSpawnRadius = 6f;
@@ -28,10 +31,17 @@ namespace CollectEggs.Gameplay.Players
             new Vector3(-9f, 1f, 0f),
             new Vector3(-5f, 1f, 7f),
             new Vector3(7f, 1f, 7f)
+            
+            // new Vector3(0f, 1f, 0f),
+            // new Vector3(0f, 1f, 0f),
+            // new Vector3(0f, 1f, 0f),
+            // new Vector3(0f, 1f, 0f),
+            // new Vector3(0f, 1f, 0f)
         };
 
         private Transform PlayersRoot { get; set; }
         public Transform EggsRoot { get; private set; }
+        private Camera _cachedNameCamera;
 
         public void RebuildSpawnParents()
         {
@@ -64,14 +74,15 @@ namespace CollectEggs.Gameplay.Players
             var result = new List<PlayerEntity>();
             if (playerPrefab == null)
                 return result;
+            var nameCamera = ResolveNameCamera();
             var spawnPositions = SpawnPositions(localSpawnPosition, botCount + 1);
-            localPlayer = SpawnLocalPlayer(playerPrefab, spawnPositions[0]);
+            localPlayer = SpawnLocalPlayer(playerPrefab, spawnPositions[0], nameCamera);
             if (localPlayer != null)
                 result.Add(localPlayer);
 
             for (var i = 0; i < botCount; i++)
             {
-                var bot = SpawnBot(playerPrefab, spawnPositions[i + 1], i);
+                var bot = SpawnBot(playerPrefab, spawnPositions[i + 1], i, nameCamera);
                 if (bot != null)
                     result.Add(bot);
             }
@@ -79,20 +90,21 @@ namespace CollectEggs.Gameplay.Players
             return result;
         }
 
-        private PlayerEntity SpawnLocalPlayer(GameObject playerPrefab, Vector3 localSpawnPosition)
+        private PlayerEntity SpawnLocalPlayer(GameObject playerPrefab, Vector3 localSpawnPosition, Camera nameCamera)
         {
             var localGo = Instantiate(playerPrefab, localSpawnPosition, Quaternion.identity, PlayersRoot);
             localGo.name = "Player_Local";
-            var localMovement = localGo.GetComponent<PlayerMovement>();
+            var localMovement = localGo.GetComponent<ActorMovement>();
             var localController = localGo.GetComponent<PlayerController>();
             var localEntity = localGo.GetComponent<PlayerEntity>();
             if (localEntity == null)
                 return null;
             localEntity.Configure(localPlayerId, localDisplayName, true, PlayerType.Local, localMovement, localController);
+            AttachNameView(localEntity, localDisplayName, nameCamera);
             return localEntity;
         }
 
-        private PlayerEntity SpawnBot(GameObject playerPrefab, Vector3 botPosition, int botIndex)
+        private PlayerEntity SpawnBot(GameObject playerPrefab, Vector3 botPosition, int botIndex, Camera nameCamera)
         {
             var botGo = Instantiate(playerPrefab, botPosition, Quaternion.identity, PlayersRoot);
             botGo.name = $"Player_Bot_{botIndex + 1:00}";
@@ -109,8 +121,28 @@ namespace CollectEggs.Gameplay.Players
             if (botEntity == null)
                 return null;
             var botId = $"bot-{botIndex + 1:00}";
-            botEntity.Configure(botId, $"Bot {botIndex + 1}", false, PlayerType.Bot, null, null);
+            var displayName = $"Bot {botIndex + 1}";
+            botEntity.Configure(botId, displayName, false, PlayerType.Bot, null, null);
+            AttachNameView(botEntity, displayName, nameCamera);
             return botEntity;
+        }
+
+        private Camera ResolveNameCamera()
+        {
+            if (_cachedNameCamera != null)
+                return _cachedNameCamera;
+            _cachedNameCamera = Camera.main;
+            return _cachedNameCamera;
+        }
+
+        private static void AttachNameView(PlayerEntity entity, string displayName, Camera targetCamera)
+        {
+            if (entity == null)
+                return;
+            var nameView = entity.GetComponent<PlayerNameView>();
+            if (nameView == null)
+                nameView = entity.gameObject.AddComponent<PlayerNameView>();
+            nameView.Initialize(displayName, targetCamera);
         }
 
         private List<Vector3> SpawnPositions(Vector3 fallbackCenter, int count)

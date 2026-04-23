@@ -1,3 +1,4 @@
+using CollectEggs.Gameplay.Movement;
 using UnityEngine;
 
 namespace CollectEggs.Gameplay.Players
@@ -24,7 +25,7 @@ namespace CollectEggs.Gameplay.Players
         private PlayerType playerType = PlayerType.Local;
 
         [SerializeField]
-        private PlayerMovement movement;
+        private ActorMovement movement;
 
         [SerializeField]
         private PlayerController controller;
@@ -33,16 +34,16 @@ namespace CollectEggs.Gameplay.Players
         public string DisplayName => displayName;
         public bool IsLocal => isLocal;
         public PlayerType Type => playerType;
-        public PlayerMovement Movement => movement;
+        public ActorMovement Movement => movement;
         public PlayerController Controller => controller;
 
-        public void Configure(string id, string name, bool local, PlayerType type, PlayerMovement playerMovement, PlayerController playerController)
+        public void Configure(string id, string name, bool local, PlayerType type, ActorMovement actorMovement, PlayerController playerController)
         {
             playerId = id;
             displayName = name;
             isLocal = local;
             playerType = type;
-            movement = playerMovement;
+            movement = actorMovement;
             controller = playerController;
         }
     }

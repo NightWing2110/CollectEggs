@@ -1,9 +1,11 @@
+using CollectEggs.Gameplay.Movement;
+using CollectEggs.Gameplay.Collection;
 using CollectEggs.Core;
 using UnityEngine;
 
 namespace CollectEggs.Gameplay.Players
 {
-    [RequireComponent(typeof(PlayerMovement), typeof(PlayerEntity))]
+    [RequireComponent(typeof(ActorMovement), typeof(PlayerEntity))]
     public class PlayerController : MonoBehaviour
     {
         private enum PlayerState
@@ -12,13 +14,13 @@ namespace CollectEggs.Gameplay.Players
             Active = 1
         }
 
-        private PlayerMovement _movement;
+        private ActorMovement _movement;
         private PlayerEntity _entity;
         private PlayerState _state = PlayerState.Active;
 
         private void Awake()
         {
-            _movement = GetComponent<PlayerMovement>();
+            _movement = GetComponent<ActorMovement>();
             _entity = GetComponent<PlayerEntity>();
         }
 
@@ -47,13 +49,7 @@ namespace CollectEggs.Gameplay.Players
 
         private void OnControllerColliderHit(ControllerColliderHit hit)
         {
-            if (hit.collider == null)
-                return;
-            if (!hit.collider.CompareTag("Egg"))
-                return;
-            if (GameManager.Instance == null)
-                return;
-            GameManager.Instance.CollectEgg(_entity, hit.collider.gameObject);
+            EggCollectProximity.CollectFromCollider(_entity, hit.collider);
         }
     }
 }
