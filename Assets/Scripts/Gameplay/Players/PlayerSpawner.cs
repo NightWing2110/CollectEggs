@@ -5,11 +5,22 @@ using System.Linq;
 using CollectEggs.Gameplay.Movement;
 using CollectEggs.Gameplay.Players.View;
 using CollectEggs.Bots;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace CollectEggs.Gameplay.Players
 {
     public class PlayerSpawner : MonoBehaviour
     {
+        private static readonly string[] BotPrefabAssetPaths =
+        {
+            "Assets/Prefabs/Bots/Player_Bot_01.prefab",
+            "Assets/Prefabs/Bots/Player_Bot_02.prefab",
+            "Assets/Prefabs/Bots/Player_Bot_03.prefab",
+            "Assets/Prefabs/Bots/Player_Bot_04.prefab"
+        };
+
         [SerializeField]
         private string localPlayerId = "local";
 
@@ -26,17 +37,11 @@ namespace CollectEggs.Gameplay.Players
         [SerializeField]
         private List<Vector3> spawnPoints = new()
         {
-            new Vector3(0f, 1f, 0f),
-            new Vector3(8.5f, 1f, -4f),
-            new Vector3(-9f, 1f, 0f),
-            new Vector3(-5f, 1f, 7f),
-            new Vector3(7f, 1f, 7f)
-            
-            // new Vector3(0f, 1f, 0f),
-            // new Vector3(0f, 1f, 0f),
-            // new Vector3(0f, 1f, 0f),
-            // new Vector3(0f, 1f, 0f),
-            // new Vector3(0f, 1f, 0f)
+            new Vector3(0f, 0f, 0f),
+            new Vector3(8.5f, 0f, -4f),
+            new Vector3(-9f, 0f, 0f),
+            new Vector3(-5f, 0f, 7f),
+            new Vector3(7f, 0f, 7f)
         };
 
         private Transform PlayersRoot { get; set; }
@@ -106,7 +111,8 @@ namespace CollectEggs.Gameplay.Players
 
         private PlayerEntity SpawnBot(GameObject playerPrefab, Vector3 botPosition, int botIndex, Camera nameCamera)
         {
-            var botGo = Instantiate(playerPrefab, botPosition, Quaternion.identity, PlayersRoot);
+            var botPrefab = ResolveBotPrefab(botIndex, playerPrefab);
+            var botGo = Instantiate(botPrefab, botPosition, Quaternion.identity, PlayersRoot);
             botGo.name = $"Player_Bot_{botIndex + 1:00}";
             var botController = botGo.GetComponent<PlayerController>();
             if (botController != null)
@@ -125,6 +131,21 @@ namespace CollectEggs.Gameplay.Players
             botEntity.Configure(botId, displayName, false, PlayerType.Bot, null, null);
             AttachNameView(botEntity, displayName, nameCamera);
             return botEntity;
+        }
+
+        private static GameObject ResolveBotPrefab(int botIndex, GameObject fallbackPrefab)
+        {
+            if (fallbackPrefab == null)
+                return null;
+            if (BotPrefabAssetPaths.Length == 0)
+                return fallbackPrefab;
+            var assetPath = BotPrefabAssetPaths[Mathf.Abs(botIndex) % BotPrefabAssetPaths.Length];
+#if UNITY_EDITOR
+            var loaded = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            return loaded != null ? loaded : fallbackPrefab;
+#else
+            return fallbackPrefab;
+#endif
         }
 
         private Camera ResolveNameCamera()

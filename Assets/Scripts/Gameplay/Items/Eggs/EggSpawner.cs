@@ -41,10 +41,24 @@ namespace CollectEggs.Gameplay.Eggs
         private int initialEggCount = 20;
         // public int initialEggCount = 1;
 
+        [SerializeField]
+        private List<Material> eggMaterialVariants = new();
+
         private int _spawnedEggIndex;
         private Transform _spawnRoot;
         private readonly List<Transform> _players = new();
         private MatchTimer _matchTimer;
+        private readonly List<Material> _runtimeMaterialVariants = new();
+        private bool _hasInitializedMaterials;
+
+        private static readonly Color[] FallbackEggColors =
+        {
+            new(0.98f, 0.88f, 0.35f, 1f),
+            new(0.98f, 0.55f, 0.29f, 1f),
+            new(0.38f, 0.82f, 0.98f, 1f),
+            new(0.76f, 0.58f, 0.98f, 1f),
+            new(0.48f, 0.92f, 0.56f, 1f)
+        };
 
         public Vector3 SpawnBoundsMin => spawnBoundsMin;
         public Vector3 SpawnBoundsMax => spawnBoundsMax;
@@ -62,6 +76,7 @@ namespace CollectEggs.Gameplay.Eggs
                 }
             }
             _matchTimer = matchTimer;
+            EnsureMaterialVariantsInitialized();
         }
 
         public void SpawnInitialEggs()
@@ -85,7 +100,60 @@ namespace CollectEggs.Gameplay.Eggs
                 var eggEntity = egg.GetComponent<EggEntity>();
                 if (eggEntity != null)
                     eggEntity.Configure($"egg-{_spawnedEggIndex:000}");
+                ApplyRandomMaterial(egg);
                 return;
+            }
+        }
+
+        private void EnsureMaterialVariantsInitialized()
+        {
+            if (_hasInitializedMaterials)
+                return;
+            _hasInitializedMaterials = true;
+            _runtimeMaterialVariants.Clear();
+            for (var i = 0; i < eggMaterialVariants.Count; i++)
+            {
+                if (eggMaterialVariants[i] != null)
+                    _runtimeMaterialVariants.Add(eggMaterialVariants[i]);
+            }
+
+            if (_runtimeMaterialVariants.Count > 0 || eggPrefab == null)
+                return;
+            var prefabRenderer = eggPrefab.GetComponent<Renderer>();
+            if (prefabRenderer == null || prefabRenderer.sharedMaterial == null)
+                return;
+            for (var i = 0; i < FallbackEggColors.Length; i++)
+            {
+                var cloned = new Material(prefabRenderer.sharedMaterial)
+                {
+                    name = $"EggRuntime_{i + 1:00}"
+                };
+                if (cloned.HasProperty("_Color"))
+                    cloned.color = FallbackEggColors[i];
+                _runtimeMaterialVariants.Add(cloned);
+            }
+        }
+
+        private void ApplyRandomMaterial(GameObject egg)
+        {
+            if (egg == null)
+                return;
+            if (_runtimeMaterialVariants.Count == 0)
+                return;
+            var renderer = egg.GetComponent<Renderer>();
+            if (renderer == null)
+                return;
+            var index = Random.Range(0, _runtimeMaterialVariants.Count);
+            renderer.sharedMaterial = _runtimeMaterialVariants[index];
+        }
+
+        private void OnDestroy()
+        {
+            for (var i = 0; i < _runtimeMaterialVariants.Count; i++)
+            {
+                var material = _runtimeMaterialVariants[i];
+                if (material != null && material.name.StartsWith("EggRuntime_"))
+                    Destroy(material);
             }
         }
 
