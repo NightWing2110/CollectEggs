@@ -2,10 +2,9 @@ using UnityEngine;
 
 namespace CollectEggs.Gameplay.Movement
 {
-    public class ActorMovement : MonoBehaviour
+    public sealed class ActorMovement : MonoBehaviour
     {
-        [SerializeField]
-        private float moveSpeed = 6f;
+        private float MoveSpeed { get; set; }
 
         [SerializeField]
         private float gravityMultiplier = 1f;
@@ -14,11 +13,13 @@ namespace CollectEggs.Gameplay.Movement
 
         private void Awake() => _characterController = GetComponent<CharacterController>();
 
+        public void SetMoveSpeedFromAuthority(float speed) => MoveSpeed = Mathf.Max(0f, speed);
+
         public void Move(Vector2 direction)
         {
             if (direction.sqrMagnitude > 1f)
                 direction.Normalize();
-            var delta = moveSpeed * Time.deltaTime;
+            var delta = MoveSpeed * Time.deltaTime;
             var motion = new Vector3(direction.x * delta, 0f, direction.y * delta);
             if (_characterController != null)
             {

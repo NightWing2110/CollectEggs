@@ -1,15 +1,10 @@
 using CollectEggs.Gameplay.Movement;
+using CollectEggs.Shared.Data;
+using CollectEggs.Shared.Snapshots;
 using UnityEngine;
 
 namespace CollectEggs.Gameplay.Players
 {
-    public enum PlayerType
-    {
-        Local = 0,
-        Bot = 1,
-        Remote = 2
-    }
-
     public class PlayerEntity : MonoBehaviour
     {
         [SerializeField]
@@ -37,14 +32,16 @@ namespace CollectEggs.Gameplay.Players
         public ActorMovement Movement => movement;
         public PlayerController Controller => controller;
 
-        public void Configure(string id, string name, bool local, PlayerType type, ActorMovement actorMovement, PlayerController playerController)
+        public void ConfigureFromServer(PlayerSpawnData data, ActorMovement actorMovement, PlayerController playerController)
         {
-            playerId = id;
-            displayName = name;
-            isLocal = local;
-            playerType = type;
+            playerId = data.PlayerId;
+            displayName = data.DisplayName;
+            isLocal = data.IsLocalPlayer;
+            playerType = data.PlayerType;
             movement = actorMovement;
             controller = playerController;
+            if (movement != null)
+                movement.SetMoveSpeedFromAuthority(data.MoveSpeed);
         }
     }
 }

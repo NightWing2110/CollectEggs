@@ -4,11 +4,14 @@ using System.Linq;
 using CollectEggs.Gameplay;
 using CollectEggs.Gameplay.Collection;
 using CollectEggs.Gameplay.Eggs;
+using CollectEggs.Gameplay.Players;
 using CollectEggs.Gameplay.Scoring;
 using CollectEggs.Gameplay.Timer;
+using CollectEggs.Client.View;
+using CollectEggs.Bots;
+using CollectEggs.Shared.Messages;
 using CollectEggs.UI;
 using CollectEggs.UI.Results;
-using CollectEggs.Gameplay.Players;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -20,10 +23,12 @@ namespace CollectEggs.Core
         private readonly struct EggCollectedResult
         {
             public readonly string EggId;
+            public readonly int ScoreDelta;
 
-            public EggCollectedResult(string eggId)
+            public EggCollectedResult(string eggId, int scoreDelta)
             {
                 EggId = eggId;
+                ScoreDelta = scoreDelta;
             }
         }
 
@@ -36,15 +41,18 @@ namespace CollectEggs.Core
         private GameObject playerPrefab;
 
         [SerializeField]
-        private Vector3 spawnPosition = new(0f, 1f, 0f);
+        private string fallbackLocalPlayerId = "local";
 
         [SerializeField]
-        private string fallbackLocalPlayerId = "local";
+        private float botGridCellSize = 0.5f;
 
         private readonly List<PlayerEntity> _players = new();
         private readonly List<Transform> _playerTransforms = new();
+        private readonly List<Vector3> _playerPositionScratch = new();
+        private readonly List<Vector3> _eggPositionScratch = new();
         private PlayerEntity _localPlayerEntity;
-        public bool IsMatchRunning => _matchTimer != null && _matchTimer.IsRunning;
+        private GameBootstrapper _bootstrapper;
+        private EggViewManager _eggViewManager;
         private PlayerSpawner _playerSpawner;
         private EggSpawner _eggSpawner;
         private EggCollectSystem _eggCollectSystem;
@@ -53,21 +61,78 @@ namespace CollectEggs.Core
         private DebugHud _debugHud;
         private ResultsPanelView _resultsPanel;
         private GridMap _gridMap;
+        private bool _matchExpiryHandled;
 
-        [SerializeField]
-        private float botGridCellSize = 0.5f;
+        public bool IsMatchRunning => _matchTimer != null && _matchTimer.IsRunning;
+        public GameObject PlayerPrefab => playerPrefab;
 
         private void Awake()
         {
             Instance = this;
             EnsureDependencies();
             ConfigureNavigationGrid();
+            _playerSpawner = GetOrAdd<PlayerSpawner>();
             _playerSpawner.RebuildSpawnParents();
+            if (GetComponent<GameBootstrapper>() == null)
+                gameObject.AddComponent<GameBootstrapper>();
+        }
+
+        public void ApplyMatchStarted(
+            MatchStartedMessage message,
+            IReadOnlyList<PlayerEntity> players,
+            PlayerEntity localPlayer,
+            GameBootstrapper bootstrapper)
+        {
+            _bootstrapper = bootstrapper;
+            _eggViewManager = GetOrAdd<EggViewManager>();
+            if (_eggSpawner != null && _eggSpawner.EggPrefab != null)
+                _eggViewManager.SetEggPrefab(_eggSpawner.EggPrefab);
+            _players.Clear();
+            _playerTransforms.Clear();
+            if (players != null)
+            {
+                foreach (var p in players)
+                {
+                    if (p == null)
+                        continue;
+                    _players.Add(p);
+                    _playerTransforms.Add(p.transform);
+                }
+            }
+
+            _localPlayerEntity = localPlayer;
+            if (_localPlayerEntity == null)
+            {
+                Debug.LogError("ApplyMatchStarted: local player missing.");
+                return;
+            }
+
+            _matchExpiryHandled = false;
+            _eggCollectSystem.Initialize(_localPlayerEntity);
+            if (message != null)
+            {
+                _matchTimer.BeginFromAuthority(message.Rules.MatchDuration);
+                _eggCollectSystem.SetCollectRadiusFromAuthority(message.Rules.EggCollectRadius);
+                foreach (var p in _players)
+                {
+                    var bot = p != null ? p.GetComponent<BotController>() : null;
+                    bot?.SetCollectReachFromAuthority(message.Rules.EggCollectRadius);
+                }
+            }
+            else
+                _matchTimer.BeginFromAuthority(0f);
+
+            _scoreService.ResetScores();
+            foreach (var player in _players.Where(player => player != null))
+                _scoreService.EnsurePlayer(player.PlayerId);
+            _resultsPanel.Hide();
+            _debugHud.SetMatchEndSummaryVisible(true);
+            MatchStarted?.Invoke();
+            _debugHud.Initialize(_matchTimer, _scoreService, _localPlayerEntity.PlayerId, RestartMatch);
         }
 
         private void EnsureDependencies()
         {
-            _playerSpawner = GetOrAdd<PlayerSpawner>();
             _eggSpawner = GetOrAdd<EggSpawner>();
             _eggCollectSystem = GetOrAdd<EggCollectSystem>();
             _matchTimer = GetOrAdd<MatchTimer>();
@@ -81,63 +146,11 @@ namespace CollectEggs.Core
         {
             if (_gridMap == null || _eggSpawner == null)
                 return;
-
             _gridMap.ConfigureFromBounds(_eggSpawner.SpawnBoundsMin, _eggSpawner.SpawnBoundsMax, botGridCellSize);
             var groundLayer = LayerMask.NameToLayer("Ground");
             var obstacleLayer = LayerMask.NameToLayer("Obstacle");
             _gridMap.ConfigureLayers(groundLayer, obstacleLayer);
             _gridMap.Rebuild();
-        }
-
-        private void Start()
-        {
-            if (!SpawnPlayers())
-                return;
-            InitializeGameplaySystems();
-            StartMatchFlow();
-            InitializeUi();
-        }
-
-        private bool SpawnPlayers()
-        {
-            _players.Clear();
-            _players.AddRange(_playerSpawner.SpawnPlayers(playerPrefab, spawnPosition, out _localPlayerEntity));
-            if (_localPlayerEntity == null)
-            {
-                Debug.LogError("Failed to spawn local player entity from player prefab.");
-                return false;
-            }
-
-            _playerTransforms.Clear();
-            foreach (var player in _players)
-            {
-                if (player != null)
-                    _playerTransforms.Add(player.transform);
-            }
-            return true;
-        }
-
-        private void InitializeGameplaySystems()
-        {
-            _eggSpawner.Initialize(_playerSpawner.EggsRoot, _playerTransforms, _matchTimer);
-            _eggCollectSystem.Initialize(_localPlayerEntity);
-            _matchTimer.MatchEnded += HandleMatchEnded;
-            _scoreService.ResetScores();
-            foreach (var player in _players.Where(player => player != null)) _scoreService.EnsurePlayer(player.PlayerId);
-        }
-
-        private void StartMatchFlow()
-        {
-            _resultsPanel.Hide();
-            _debugHud.SetMatchEndSummaryVisible(true);
-            _matchTimer.Begin();
-            MatchStarted?.Invoke();
-            _eggSpawner.SpawnInitialEggs();
-        }
-
-        private void InitializeUi()
-        {
-            _debugHud.Initialize(_matchTimer, _scoreService, _localPlayerEntity.PlayerId, RestartMatch);
         }
 
         public bool CollectEgg(PlayerEntity collector, GameObject egg)
@@ -158,7 +171,8 @@ namespace CollectEggs.Core
             if (eggEntity != null && !eggEntity.MarkCollected())
                 return false;
             var eggId = eggEntity != null ? eggEntity.EggId : string.Empty;
-            result = new EggCollectedResult(eggId);
+            var scoreDelta = eggEntity != null ? eggEntity.ScoreValue : 1;
+            result = new EggCollectedResult(eggId, scoreDelta);
             return true;
         }
 
@@ -166,7 +180,7 @@ namespace CollectEggs.Core
         {
             var collectorId = ResolvePlayerId(collector);
             _scoreService.EnsurePlayer(collectorId);
-            _scoreService.AddScore(collectorId, 1);
+            _scoreService.AddScore(collectorId, result.ScoreDelta);
             var totalScore = _scoreService.GetScore(collectorId);
             EggCollected?.Invoke(collectorId, result.EggId, totalScore);
             Debug.Log($"Score[{collectorId}]: {totalScore}");
@@ -174,9 +188,36 @@ namespace CollectEggs.Core
 
         private void FinalizeEggCollection(GameObject egg)
         {
+            var eggEntity = egg.GetComponent<EggEntity>();
+            var eggId = eggEntity != null ? eggEntity.EggId : string.Empty;
             egg.SetActive(false);
             Destroy(egg);
-            _eggSpawner.SpawnEggs();
+            if (_bootstrapper == null || _playerSpawner == null)
+                return;
+            _playerPositionScratch.Clear();
+            foreach (var t in _playerTransforms)
+            {
+                if (t != null)
+                    _playerPositionScratch.Add(t.position);
+            }
+
+            _eggPositionScratch.Clear();
+            foreach (var e in EggEntity.Active)
+            {
+                if (e != null && e.gameObject.activeInHierarchy)
+                    _eggPositionScratch.Add(e.transform.position);
+            }
+
+            _bootstrapper.NotifyEggCollectedForRespawn(eggId, _playerPositionScratch, _eggPositionScratch);
+        }
+
+        public void NotifyMatchExpiredFromNetwork()
+        {
+            if (_matchExpiryHandled || _matchTimer == null)
+                return;
+            _matchExpiryHandled = true;
+            _matchTimer.StopFromAuthority();
+            HandleMatchEnded();
         }
 
         private void HandleMatchEnded()
@@ -184,7 +225,7 @@ namespace CollectEggs.Core
             var sortedResults = BuildSortedMatchResults();
             _resultsPanel.Show(sortedResults);
             _debugHud.SetMatchEndSummaryVisible(false);
-            if (_scoreService.TryGetWinner(out var winnerId, out var winnerScore))
+            if (_scoreService.GetWinner(out var winnerId, out var winnerScore))
             {
                 MatchEnded?.Invoke(winnerId, winnerScore);
                 Debug.Log($"Match ended. Winner: {winnerId}. Final score: {winnerScore}");
@@ -226,13 +267,11 @@ namespace CollectEggs.Core
 
         private void OnDestroy()
         {
-            if (_matchTimer != null)
-                _matchTimer.MatchEnded -= HandleMatchEnded;
             if (Instance == this)
                 Instance = null;
         }
 
-        private T GetOrAdd<T>() where T : Component
+        public T GetOrAdd<T>() where T : Component
         {
             var component = GetComponent<T>();
             if (component == null)

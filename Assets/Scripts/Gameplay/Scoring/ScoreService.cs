@@ -18,9 +18,8 @@ namespace CollectEggs.Gameplay.Scoring
         {
             if (string.IsNullOrWhiteSpace(playerId))
                 return;
-            if (_scores.ContainsKey(playerId))
+            if (!_scores.TryAdd(playerId, 0))
                 return;
-            _scores[playerId] = 0;
             ScoreChanged?.Invoke(playerId, 0);
         }
 
@@ -30,20 +29,17 @@ namespace CollectEggs.Gameplay.Scoring
                 return;
             if (amount <= 0)
                 return;
-            if (!_scores.ContainsKey(playerId))
-                _scores[playerId] = 0;
+            _scores.TryAdd(playerId, 0);
             _scores[playerId] += amount;
             ScoreChanged?.Invoke(playerId, _scores[playerId]);
         }
 
         public int GetScore(string playerId)
         {
-            if (string.IsNullOrWhiteSpace(playerId))
-                return 0;
-            return _scores.TryGetValue(playerId, out var score) ? score : 0;
+            return string.IsNullOrWhiteSpace(playerId) ? 0 : _scores.GetValueOrDefault(playerId, 0);
         }
 
-        public bool TryGetWinner(out string winnerId, out int winnerScore)
+        public bool GetWinner(out string winnerId, out int winnerScore)
         {
             winnerId = string.Empty;
             winnerScore = 0;

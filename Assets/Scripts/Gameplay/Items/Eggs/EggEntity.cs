@@ -3,22 +3,23 @@ using UnityEngine;
 
 namespace CollectEggs.Gameplay.Eggs
 {
-    public class EggEntity : MonoBehaviour
+    public sealed class EggEntity : MonoBehaviour
     {
         private static readonly List<EggEntity> ActiveEggs = new();
 
-        [SerializeField]
-        private string eggId = "egg-0";
-
-        [SerializeField]
+        private string eggId = "";
+        private int scoreValue;
         private bool isCollected;
 
         public string EggId => eggId;
+        public int ScoreValue => scoreValue;
+
         public static IReadOnlyList<EggEntity> Active => ActiveEggs;
 
-        public void Configure(string id)
+        public void Configure(string id, int score)
         {
-            eggId = id;
+            eggId = id ?? "";
+            scoreValue = Mathf.Max(0, score);
             isCollected = false;
         }
 

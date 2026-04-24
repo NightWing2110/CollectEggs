@@ -1,34 +1,36 @@
-using System;
 using UnityEngine;
 
 namespace CollectEggs.Gameplay.Timer
 {
-    public class MatchTimer : MonoBehaviour
+    public sealed class MatchTimer : MonoBehaviour
     {
-        // [SerializeField]
-        // private float matchDurationSeconds = 60f;
-        public float matchDurationSeconds = 20f;
-
         public float RemainingSeconds { get; private set; }
         public bool IsRunning { get; private set; }
-        public event Action MatchEnded;
 
-        public void Begin()
+        public void BeginFromAuthority(float durationSeconds)
         {
-            RemainingSeconds = Mathf.Max(1f, matchDurationSeconds);
-            IsRunning = true;
+            RemainingSeconds = Mathf.Max(0f, durationSeconds);
+            IsRunning = RemainingSeconds > 0f;
+        }
+
+        public void SetRemainingSecondsFromNetwork(float remainingSeconds)
+        {
+            RemainingSeconds = Mathf.Max(0f, remainingSeconds);
+            IsRunning = RemainingSeconds > 0f;
+        }
+
+        public void StopFromAuthority()
+        {
+            RemainingSeconds = 0f;
+            IsRunning = false;
         }
 
         private void Update()
         {
             if (!IsRunning)
                 return;
-            RemainingSeconds -= Time.deltaTime;
-            if (RemainingSeconds > 0f)
-                return;
-            RemainingSeconds = 0f;
-            IsRunning = false;
-            MatchEnded?.Invoke();
+
+            RemainingSeconds = Mathf.Max(0f, RemainingSeconds - Time.deltaTime);
         }
     }
 }

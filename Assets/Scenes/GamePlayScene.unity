@@ -624,7 +624,6 @@ MonoBehaviour:
   groundProbeDistance: 4
   minHorizontalDistanceFromPlayer: 2.5
   maxSpawnAttempts: 48
-  initialEggCount: 20
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0

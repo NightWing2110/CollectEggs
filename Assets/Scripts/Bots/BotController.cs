@@ -56,9 +56,6 @@ namespace CollectEggs.Bots
         private float recoverMoveDuration = 0.25f;
 
         [SerializeField]
-        private float collectReachRadius = 0.75f;
-
-        [SerializeField]
         private float collectProximitySlack = 0.14f;
 
         [SerializeField]
@@ -94,6 +91,7 @@ namespace CollectEggs.Bots
         private GridMap _gridMap;
         private CharacterController _cc;
         private bool _eggCollectedSubscribed;
+        private float _authorityCollectReach;
 
         #endregion
 
@@ -149,6 +147,9 @@ namespace CollectEggs.Bots
         }
 
         public bool UsesExactApproachGoal => _targetEgg != null && (_hasApproachGoal || _path.Count > 0);
+
+        public void SetCollectReachFromAuthority(float radius) =>
+            _authorityCollectReach = Mathf.Max(0.01f, radius);
 
         private void Awake()
         {
@@ -224,7 +225,7 @@ namespace CollectEggs.Bots
                     _entity,
                     targetBeforeCollect,
                     refXZ,
-                    collectReachRadius,
+                    _authorityCollectReach,
                     collectProximitySlack,
                     extraRadius))
                 return;
@@ -279,7 +280,7 @@ namespace CollectEggs.Bots
                 var dx = e.x - refXZ.x;
                 var dz = e.z - refXZ.y;
                 var d = Mathf.Sqrt(dx * dx + dz * dz);
-                var pickupHorizon = collectReachRadius + collectProximitySlack + (_cc != null ? _cc.radius * 0.4f : 0f);
+                var pickupHorizon = _authorityCollectReach + collectProximitySlack + (_cc != null ? _cc.radius * 0.4f : 0f);
                 if (d > pickupHorizon + 0.18f)
                     BlacklistEgg(_targetEgg, eggIgnoreSecondsAfterPathFail);
             }
@@ -325,7 +326,7 @@ namespace CollectEggs.Bots
             var botR = _cc != null ? _cc.radius : 0.5f;
             var settings = new EggApproachPlannerSettings(
                 botR,
-                collectReachRadius,
+                _authorityCollectReach,
                 approachMargin,
                 earlyExitPathCellCount,
                 earlyExitPathCostMultiplier);

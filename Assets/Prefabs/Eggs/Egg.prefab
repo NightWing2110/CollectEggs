@@ -110,6 +110,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c5e9eb9e98f40e98f4b5b75f3be64dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  eggId: egg-0
 
 

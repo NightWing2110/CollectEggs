@@ -1,10 +1,11 @@
-using UnityEngine;
-using UnityEngine.SceneManagement;
 using System.Collections.Generic;
-using System.Linq;
+using CollectEggs.Bots;
 using CollectEggs.Gameplay.Movement;
 using CollectEggs.Gameplay.Players.View;
-using CollectEggs.Bots;
+using CollectEggs.Shared.Data;
+using CollectEggs.Shared.Snapshots;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -22,35 +23,29 @@ namespace CollectEggs.Gameplay.Players
         };
 
         [SerializeField]
-        private string localPlayerId = "local";
-
-        [SerializeField]
-        private string localDisplayName = "You";
-
-        [SerializeField]
-        private int botCount = 4;
-        // public int botCount = 4;
-
-        [SerializeField]
-        private float botSpawnRadius = 6f;
-
-        [SerializeField]
-        private List<Vector3> spawnPoints = new()
-        {
-            new Vector3(0f, 0f, 0f),
-            new Vector3(8.5f, 0f, -4f),
-            new Vector3(-9f, 0f, 0f),
-            new Vector3(-5f, 0f, 7f),
-            new Vector3(7f, 0f, 7f)
-        };
+        private GameObject localPlayerPrefab;
 
         private Transform PlayersRoot { get; set; }
         public Transform EggsRoot { get; private set; }
         private Camera _cachedNameCamera;
 
+        public void ApplyDefaultPlayerPrefab(GameObject prefab)
+        {
+            if (prefab != null)
+                localPlayerPrefab = prefab;
+        }
+
         public void RebuildSpawnParents()
         {
-            Transform spawnGroups = (from root in SceneManager.GetActiveScene().GetRootGameObjects() where root.name == "SpawnGroups" select root.transform).FirstOrDefault();
+            Transform spawnGroups = null;
+            foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                if (root.name == "SpawnGroups")
+                {
+                    spawnGroups = root.transform;
+                    break;
+                }
+            }
 
             if (spawnGroups == null)
                 spawnGroups = new GameObject("SpawnGroups").transform;
@@ -73,64 +68,55 @@ namespace CollectEggs.Gameplay.Players
             EggsRoot = eggsChild;
         }
 
-        public List<PlayerEntity> SpawnPlayers(GameObject playerPrefab, Vector3 localSpawnPosition, out PlayerEntity localPlayer)
+        public PlayerEntity SpawnFromServerData(PlayerSpawnData data, int botVisualIndex)
         {
-            localPlayer = null;
-            var result = new List<PlayerEntity>();
-            if (playerPrefab == null)
-                return result;
+            if (PlayersRoot == null)
+                RebuildSpawnParents();
             var nameCamera = ResolveNameCamera();
-            var spawnPositions = SpawnPositions(localSpawnPosition, botCount + 1);
-            localPlayer = SpawnLocalPlayer(playerPrefab, spawnPositions[0], nameCamera);
-            if (localPlayer != null)
-                result.Add(localPlayer);
-
-            for (var i = 0; i < botCount; i++)
-            {
-                var bot = SpawnBot(playerPrefab, spawnPositions[i + 1], i, nameCamera);
-                if (bot != null)
-                    result.Add(bot);
-            }
-
-            return result;
+            return data.IsLocalPlayer
+                ? SpawnLocalFromServer(data, nameCamera)
+                : SpawnBotFromServer(data, botVisualIndex, nameCamera);
         }
 
-        private PlayerEntity SpawnLocalPlayer(GameObject playerPrefab, Vector3 localSpawnPosition, Camera nameCamera)
+        private PlayerEntity SpawnLocalFromServer(PlayerSpawnData data, Camera nameCamera)
         {
-            var localGo = Instantiate(playerPrefab, localSpawnPosition, Quaternion.identity, PlayersRoot);
-            localGo.name = "Player_Local";
-            var localMovement = localGo.GetComponent<ActorMovement>();
-            var localController = localGo.GetComponent<PlayerController>();
-            var localEntity = localGo.GetComponent<PlayerEntity>();
-            if (localEntity == null)
+            if (localPlayerPrefab == null)
                 return null;
-            localEntity.Configure(localPlayerId, localDisplayName, true, PlayerType.Local, localMovement, localController);
-            AttachNameView(localEntity, localDisplayName, nameCamera);
-            return localEntity;
+            var go = Instantiate(localPlayerPrefab, data.SpawnPosition, Quaternion.identity, PlayersRoot);
+            go.name = "Player_Local";
+            var movement = go.GetComponent<ActorMovement>();
+            var controller = go.GetComponent<PlayerController>();
+            var entity = go.GetComponent<PlayerEntity>();
+            if (entity == null)
+                return null;
+            entity.ConfigureFromServer(data, movement, controller);
+            AttachNameView(entity, data.DisplayName, nameCamera);
+            return entity;
         }
 
-        private PlayerEntity SpawnBot(GameObject playerPrefab, Vector3 botPosition, int botIndex, Camera nameCamera)
+        private PlayerEntity SpawnBotFromServer(PlayerSpawnData data, int botVisualIndex, Camera nameCamera)
         {
-            var botPrefab = ResolveBotPrefab(botIndex, playerPrefab);
-            var botGo = Instantiate(botPrefab, botPosition, Quaternion.identity, PlayersRoot);
-            botGo.name = $"Player_Bot_{botIndex + 1:00}";
-            var botController = botGo.GetComponent<PlayerController>();
-            if (botController != null)
-            {
-                botController.enabled = false;
-                Destroy(botController);
-            }
-            var aiController = botGo.GetComponent<BotController>();
-            if (aiController == null)
-                botGo.AddComponent<BotController>();
-            var botEntity = botGo.GetComponent<PlayerEntity>();
-            if (botEntity == null)
+            var botPrefab = ResolveBotPrefab(botVisualIndex, localPlayerPrefab);
+            if (botPrefab == null)
                 return null;
-            var botId = $"bot-{botIndex + 1:00}";
-            var displayName = $"Bot {botIndex + 1}";
-            botEntity.Configure(botId, displayName, false, PlayerType.Bot, null, null);
-            AttachNameView(botEntity, displayName, nameCamera);
-            return botEntity;
+            var go = Instantiate(botPrefab, data.SpawnPosition, Quaternion.identity, PlayersRoot);
+            go.name = $"Player_Bot_{botVisualIndex + 1:00}";
+            var playerController = go.GetComponent<PlayerController>();
+            if (playerController != null)
+            {
+                playerController.enabled = false;
+                Destroy(playerController);
+            }
+
+            // TODO Phase 2+: replace BotController local movement with server-driven ServerBotSimulation + PlayerSnapshot + client RemotePlayerView interpolation.
+            if (go.GetComponent<BotController>() == null)
+                go.AddComponent<BotController>();
+            var entity = go.GetComponent<PlayerEntity>();
+            if (entity == null)
+                return null;
+            entity.ConfigureFromServer(data, go.GetComponent<ActorMovement>(), null);
+            AttachNameView(entity, data.DisplayName, nameCamera);
+            return entity;
         }
 
         private static GameObject ResolveBotPrefab(int botIndex, GameObject fallbackPrefab)
@@ -164,39 +150,6 @@ namespace CollectEggs.Gameplay.Players
             if (nameView == null)
                 nameView = entity.gameObject.AddComponent<PlayerNameView>();
             nameView.Initialize(displayName, targetCamera);
-        }
-
-        private List<Vector3> SpawnPositions(Vector3 fallbackCenter, int count)
-        {
-            var positions = new List<Vector3>(count);
-            var shuffled = new List<Vector3>(spawnPoints ?? new List<Vector3>());
-            Shuffle(shuffled);
-            for (var i = 0; i < shuffled.Count && positions.Count < count; i++)
-                positions.Add(shuffled[i]);
-
-            for (var i = positions.Count; i < count; i++)
-            {
-                if (i == 0)
-                {
-                    positions.Add(fallbackCenter);
-                    continue;
-                }
-
-                var botIndex = i - 1;
-                var angle = botIndex * Mathf.PI * 2f / Mathf.Max(1, botCount);
-                positions.Add(fallbackCenter + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * botSpawnRadius);
-            }
-
-            return positions;
-        }
-
-        private static void Shuffle(List<Vector3> list)
-        {
-            for (var i = list.Count - 1; i > 0; i--)
-            {
-                var j = Random.Range(0, i + 1);
-                (list[i], list[j]) = (list[j], list[i]);
-            }
         }
     }
 }
