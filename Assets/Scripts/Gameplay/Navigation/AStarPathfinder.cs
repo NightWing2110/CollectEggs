@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text;
-using CollectEggs.Gameplay;
 using UnityEngine;
 
 namespace CollectEggs.Gameplay.Navigation

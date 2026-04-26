@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using CollectEggs.Bots;
 using CollectEggs.Core;
-using CollectEggs.Gameplay;
 using CollectEggs.Gameplay.Eggs;
 using CollectEggs.Gameplay.Navigation;
 using UnityEditor;

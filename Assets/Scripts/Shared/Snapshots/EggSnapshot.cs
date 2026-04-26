@@ -6,10 +6,11 @@ namespace CollectEggs.Shared.Snapshots
     [Serializable]
     public sealed class EggSnapshot
     {
-        public string EggId;
-        public Vector3 Position;
-        public Color Color;
-        public int ScoreValue;
-        public bool IsActive;
+        public string eggId;
+        public Vector3 position;
+        public Color color;
+        public int scoreValue;
+        public bool isActive;
+        public string collectedByPlayerId;
     }
 }

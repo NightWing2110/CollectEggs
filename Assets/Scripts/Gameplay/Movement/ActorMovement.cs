@@ -13,7 +13,7 @@ namespace CollectEggs.Gameplay.Movement
 
         private void Awake() => _characterController = GetComponent<CharacterController>();
 
-        public void SetMoveSpeedFromAuthority(float speed) => MoveSpeed = Mathf.Max(0f, speed);
+        public void SetMoveSpeedFromServerRules(float speed) => MoveSpeed = Mathf.Max(0f, speed);
 
         public void Move(Vector2 direction)
         {
@@ -29,6 +29,14 @@ namespace CollectEggs.Gameplay.Movement
             }
 
             transform.position += motion;
+        }
+
+        public Vector3 CalculatePlanarMoveDelta(Vector2 direction, float deltaTime)
+        {
+            if (direction.sqrMagnitude > 1f)
+                direction.Normalize();
+            var delta = MoveSpeed * Mathf.Max(0f, deltaTime);
+            return new Vector3(direction.x * delta, 0f, direction.y * delta);
         }
     }
 }

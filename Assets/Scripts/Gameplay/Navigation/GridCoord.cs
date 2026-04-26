@@ -1,6 +1,6 @@
 using System;
 
-namespace CollectEggs.Gameplay
+namespace CollectEggs.Gameplay.Navigation
 {
     public readonly struct GridCoord : IEquatable<GridCoord>
     {

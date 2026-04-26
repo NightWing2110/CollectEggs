@@ -14,38 +14,48 @@ namespace CollectEggs.Client.View
         private GameObject eggPrefab;
 
         private MaterialPropertyBlock _block;
-        private readonly HashSet<string> _spawnedEggIds = new();
+        private readonly Dictionary<string, GameObject> _spawnedEggs = new();
 
-        private void Awake()
+        private void Awake() => _block = new MaterialPropertyBlock();
+
+        public void SetEggPrefab(GameObject prefab) => eggPrefab = prefab;
+
+        public void ClearTrackedEggsForNewMatch() => _spawnedEggs.Clear();
+
+        public void SpawnFromServerData(EggSpawnData data, Transform parent)
         {
-            _block = new MaterialPropertyBlock();
+            if (eggPrefab == null || string.IsNullOrEmpty(data.eggId)) return;
+            if (_spawnedEggs.ContainsKey(data.eggId)) return;
+            Spawn(data.eggId, data.position, data.color, data.scoreValue, parent);
         }
 
-        public void SetEggPrefab(GameObject prefab)
+        public void SpawnFromSnapshot(EggSnapshot snapshot, Transform parent)
         {
-            eggPrefab = prefab;
+            if (snapshot is not { isActive: true } || string.IsNullOrEmpty(snapshot.eggId)) return;
+            if (_spawnedEggs.ContainsKey(snapshot.eggId)) return;
+            Spawn(snapshot.eggId, snapshot.position, snapshot.color, snapshot.scoreValue, parent);
         }
 
-        public void ClearTrackedEggsForNewMatch()
+        private void Spawn(string eggId, Vector3 position, Color color, int scoreValue, Transform parent)
         {
-            _spawnedEggIds.Clear();
-        }
-
-        public GameObject SpawnFromServerData(EggSpawnData data, Transform parent)
-        {
-            if (eggPrefab == null || string.IsNullOrEmpty(data.EggId))
-                return null;
-            if (_spawnedEggIds.Contains(data.EggId))
-                return null;
-            var egg = Instantiate(eggPrefab, data.Position, Quaternion.identity, parent);
-            egg.name = data.EggId;
+            var egg = Instantiate(eggPrefab, position, Quaternion.identity, parent);
+            egg.name = eggId;
             egg.tag = "Egg";
             var entity = egg.GetComponent<EggEntity>();
             if (entity != null)
-                entity.Configure(data.EggId, data.ScoreValue);
-            _spawnedEggIds.Add(data.EggId);
-            ApplyColor(egg, data.Color);
-            return egg;
+                entity.Configure(eggId, scoreValue);
+            _spawnedEggs[eggId] = egg;
+            ApplyColor(egg, color);
+        }
+
+        public void RemoveFromServerData(string eggId)
+        {
+            if (string.IsNullOrEmpty(eggId))
+                return;
+            if (!_spawnedEggs.Remove(eggId, out var egg) || egg == null)
+                return;
+            egg.SetActive(false);
+            Destroy(egg);
         }
 
         private void ApplyColor(GameObject egg, Color color)
@@ -56,9 +66,10 @@ namespace CollectEggs.Client.View
             if (renderer == null)
                 return;
             _block.Clear();
-            if (renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty(BaseColorId))
+            var material = renderer.sharedMaterial;
+            if (material != null && material.HasProperty(BaseColorId))
                 _block.SetColor(BaseColorId, color);
-            else if (renderer.sharedMaterial != null && renderer.sharedMaterial.HasProperty(ColorId))
+            else if (material != null && material.HasProperty(ColorId))
                 _block.SetColor(ColorId, color);
             else
                 _block.SetColor(ColorId, color);

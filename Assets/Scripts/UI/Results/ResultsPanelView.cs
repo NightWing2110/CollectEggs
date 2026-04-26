@@ -1,12 +1,18 @@
 using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
+using UnityEngine;
 
 namespace CollectEggs.UI.Results
 {
     public class ResultsPanelView : MonoBehaviour
     {
+        private const float RowHeight = 44f;
+        private const float RowSpacing = 52f;
+        private const float MaxPanelWidth = 560f;
+        private const float MaxPanelHeight = 360f;
+        private const float ScreenMargin = 48f;
+        private const float PanelPadding = 40f;
+
         [SerializeField]
         private RectTransform overlayRoot;
 
@@ -23,50 +29,138 @@ namespace CollectEggs.UI.Results
         private ResultsRowView rowTemplate;
 
         private readonly List<ResultsRowView> _rows = new();
-        private TMP_FontAsset _fontAsset;
+
+        public RectTransform PanelRoot => panelRoot;
+
+        private void Awake()
+        {
+            ApplySceneLayout();
+        }
 
         public void Hide()
         {
-            EnsureBuilt();
+            ApplySceneLayout();
             if (overlayRoot != null)
                 overlayRoot.gameObject.SetActive(false);
         }
 
         public void Show(IReadOnlyList<MatchResultEntry> results)
         {
-            EnsureBuilt();
-            if (overlayRoot == null || panelRoot == null || rowTemplate == null)
+            ApplySceneLayout();
+            if (!HasRequiredReferences())
+            {
+                Debug.LogError("ResultsPanelView references are not fully assigned.");
                 return;
+            }
             overlayRoot.gameObject.SetActive(true);
-            var count = results != null ? results.Count : 0;
+            var count = results?.Count ?? 0;
             EnsureRowPool(count);
             for (var i = 0; i < _rows.Count; i++)
             {
                 var row = _rows[i];
                 var active = i < count;
                 row.gameObject.SetActive(active);
-                if (active)
-                    row.Bind(i + 1, results[i]);
+                if (!active) continue;
+                var rt = row.transform as RectTransform;
+                if (rt != null)
+                {
+                    var listHeight = ResolveHeight(resultsListRoot, 260f);
+                    var startY = listHeight * 0.5f - RowHeight * 0.5f - 8f;
+                    rt.anchoredPosition = new Vector2(0f, startY - i * RowSpacing);
+                }
+                if (results != null) row.Bind(results[i]);
             }
         }
 
-        private void EnsureBuilt()
+        private void ApplySceneLayout()
         {
-            if (overlayRoot != null && panelRoot != null && titleText != null && resultsListRoot != null && rowTemplate != null)
+            Stretch(overlayRoot);
+            var overlaySize = ResolveOverlaySize();
+            var panelWidth = Mathf.Min(MaxPanelWidth, Mathf.Max(280f, overlaySize.x - ScreenMargin * 2f));
+            var panelHeight = Mathf.Min(MaxPanelHeight, Mathf.Max(260f, overlaySize.y - ScreenMargin * 2f));
+            var contentWidth = Mathf.Max(240f, panelWidth - PanelPadding);
+            var listHeight = Mathf.Max(180f, panelHeight - 100f);
+
+            if (panelRoot != null)
+            {
+                panelRoot.anchorMin = new Vector2(0.5f, 0.5f);
+                panelRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                panelRoot.pivot = new Vector2(0.5f, 0.5f);
+                panelRoot.anchoredPosition = Vector2.zero;
+                panelRoot.sizeDelta = new Vector2(panelWidth, panelHeight);
+            }
+
+            if (titleText != null)
+            {
+                titleText.text = "Result";
+                titleText.fontSize = 42f;
+                titleText.color = Color.black;
+                titleText.alignment = TextAlignmentOptions.Center;
+                var titleRect = titleText.transform as RectTransform;
+                if (titleRect != null)
+                {
+                    titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+                    titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+                    titleRect.pivot = new Vector2(0.5f, 0.5f);
+                    titleRect.anchoredPosition = new Vector2(0f, panelHeight * 0.5f - 40f);
+                    titleRect.sizeDelta = new Vector2(contentWidth, 50f);
+                }
+            }
+
+            if (resultsListRoot != null)
+            {
+                resultsListRoot.anchorMin = new Vector2(0.5f, 0.5f);
+                resultsListRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                resultsListRoot.pivot = new Vector2(0.5f, 0.5f);
+                resultsListRoot.anchoredPosition = new Vector2(0f, -10f);
+                resultsListRoot.sizeDelta = new Vector2(contentWidth, listHeight);
+            }
+
+            if (rowTemplate == null) return;
+            var templateRect = rowTemplate.transform as RectTransform;
+            if (templateRect == null) return;
+            templateRect.anchorMin = new Vector2(0.5f, 0.5f);
+            templateRect.anchorMax = new Vector2(0.5f, 0.5f);
+            templateRect.pivot = new Vector2(0.5f, 0.5f);
+            templateRect.sizeDelta = new Vector2(contentWidth, RowHeight);
+        }
+
+        private Vector2 ResolveOverlaySize()
+        {
+            if (overlayRoot != null)
+            {
+                var rect = overlayRoot.rect;
+                if (rect.width > 0f && rect.height > 0f)
+                    return rect.size;
+            }
+
+            return new Vector2(Screen.width, Screen.height);
+        }
+
+        private static float ResolveHeight(RectTransform rect, float fallback)
+        {
+            if (rect == null)
+                return fallback;
+            return rect.rect.height > 0f ? rect.rect.height : Mathf.Max(fallback, rect.sizeDelta.y);
+        }
+
+        private static void Stretch(RectTransform rect)
+        {
+            if (rect == null)
                 return;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
 
-            _fontAsset = _fontAsset != null ? _fontAsset : TMP_Settings.defaultFontAsset;
-            var canvas = FindFirstObjectByType<Canvas>();
-            if (canvas == null)
-                canvas = CreateCanvas();
-
-            overlayRoot = CreateOverlay(canvas.transform);
-            panelRoot = CreatePanel(overlayRoot);
-            titleText = CreateTitle(panelRoot, _fontAsset);
-            resultsListRoot = CreateListRoot(panelRoot);
-            ResultsRowView.CreateHeader(resultsListRoot, _fontAsset);
-            rowTemplate = ResultsRowView.CreateTemplate(resultsListRoot, _fontAsset);
-            overlayRoot.gameObject.SetActive(false);
+        private bool HasRequiredReferences()
+        {
+            return overlayRoot != null &&
+                   panelRoot != null &&
+                   titleText != null &&
+                   resultsListRoot != null &&
+                   rowTemplate != null;
         }
 
         private void EnsureRowPool(int needed)
@@ -78,93 +172,6 @@ namespace CollectEggs.UI.Results
                 row.gameObject.SetActive(false);
                 _rows.Add(row);
             }
-        }
-
-        private static Canvas CreateCanvas()
-        {
-            var go = new GameObject("MainCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            var canvas = go.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = go.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
-            return canvas;
-        }
-
-        private static RectTransform CreateOverlay(Transform parent)
-        {
-            var overlayGo = new GameObject("ResultsOverlay", typeof(RectTransform), typeof(Image));
-            overlayGo.transform.SetParent(parent, false);
-            var overlay = (RectTransform)overlayGo.transform;
-            overlay.anchorMin = Vector2.zero;
-            overlay.anchorMax = Vector2.one;
-            overlay.offsetMin = Vector2.zero;
-            overlay.offsetMax = Vector2.zero;
-            var overlayImage = overlayGo.GetComponent<Image>();
-            overlayImage.color = new Color(0f, 0f, 0f, 0.45f);
-            return overlay;
-        }
-
-        private static RectTransform CreatePanel(Transform parent)
-        {
-            var panelGo = new GameObject("ResultsPanel", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            panelGo.transform.SetParent(parent, false);
-            var rt = (RectTransform)panelGo.transform;
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(0f, 90f);
-            rt.sizeDelta = new Vector2(560f, 0f);
-            var image = panelGo.GetComponent<Image>();
-            image.color = new Color(1f, 1f, 1f, 0.985f);
-            var outline = panelGo.GetComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.2f);
-            outline.effectDistance = new Vector2(1f, -1f);
-            var layout = panelGo.GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(20, 20, 18, 20);
-            layout.spacing = 10f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandHeight = false;
-            var fitter = panelGo.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            return rt;
-        }
-
-        private static TMP_Text CreateTitle(Transform parent, TMP_FontAsset fontAsset)
-        {
-            var titleGo = new GameObject("Title", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
-            titleGo.transform.SetParent(parent, false);
-            var title = titleGo.GetComponent<TextMeshProUGUI>();
-            title.font = fontAsset;
-            title.text = "Result";
-            title.fontSize = 42f;
-            title.fontStyle = FontStyles.Bold;
-            title.alignment = TextAlignmentOptions.Center;
-            title.color = Color.black;
-            var rt = (RectTransform)titleGo.transform;
-            rt.sizeDelta = new Vector2(0f, 44f);
-            var layout = titleGo.GetComponent<LayoutElement>();
-            layout.minHeight = 50f;
-            return title;
-        }
-
-        private static RectTransform CreateListRoot(Transform parent)
-        {
-            var listGo = new GameObject("ResultsList", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            listGo.transform.SetParent(parent, false);
-            var list = (RectTransform)listGo.transform;
-            var layout = listGo.GetComponent<VerticalLayoutGroup>();
-            layout.spacing = 8f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandHeight = false;
-            var fitter = listGo.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            return list;
         }
     }
 }

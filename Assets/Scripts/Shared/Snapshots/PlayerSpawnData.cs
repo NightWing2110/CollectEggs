@@ -7,11 +7,11 @@ namespace CollectEggs.Shared.Snapshots
     [Serializable]
     public struct PlayerSpawnData
     {
-        public string PlayerId;
-        public string DisplayName;
-        public PlayerType PlayerType;
-        public bool IsLocalPlayer;
-        public Vector3 SpawnPosition;
-        public float MoveSpeed;
+        public string playerId;
+        public string displayName;
+        public PlayerType playerType;
+        public bool isLocalClientPlayer;
+        public Vector3 spawnPosition;
+        public float moveSpeed;
     }
 }

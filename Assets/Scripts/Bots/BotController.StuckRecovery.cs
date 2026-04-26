@@ -13,25 +13,16 @@ namespace CollectEggs.Bots
             if (!IsStuckSampleDue())
                 return;
 
-            RunStuckDistanceCheckAndMaybeRecover();
+            EvaluateStuckRecovery();
         }
 
-        private bool IsFollowingPartialPath()
-        {
-            return _path.Count > 0 && _pathIndex < _path.Count;
-        }
+        private bool IsFollowingPartialPath() => _path.Count > 0 && _pathIndex < _path.Count;
 
-        private void AdvanceStuckTimer()
-        {
-            _stuckTimer -= Time.deltaTime;
-        }
+        private void AdvanceStuckTimer() => _stuckTimer -= Time.deltaTime;
 
-        private bool IsStuckSampleDue()
-        {
-            return _stuckTimer <= 0f;
-        }
+        private bool IsStuckSampleDue() => _stuckTimer <= 0f;
 
-        private void RunStuckDistanceCheckAndMaybeRecover()
+        private void EvaluateStuckRecovery()
         {
             _stuckTimer = stuckCheckInterval;
             var moved = (transform.position - _lastStuckPosition).magnitude;
@@ -49,7 +40,7 @@ namespace CollectEggs.Bots
 
             _stuckChecks = 0;
             RefreshPath(true);
-            if (!IsEggValid(_targetEgg) || _path.Count == 0 || _pathIndex >= _path.Count)
+            if (!IsEggValid(CurrentTargetEgg) || _path.Count == 0 || _pathIndex >= _path.Count)
             {
                 _state = BotState.Idle;
                 return;
@@ -59,10 +50,10 @@ namespace CollectEggs.Bots
             _recoverDirection = Random.insideUnitCircle.normalized;
             _recoverTimer = recoverMoveDuration;
             _state = BotState.Recovering;
-            if (!IsEggValid(_targetEgg)) return;
+            if (!IsEggValid(CurrentTargetEgg)) return;
             _stuckRecoveriesOnTarget++;
             if (_stuckRecoveriesOnTarget < stuckRecoveriesBeforeEggIgnore) return;
-            BlacklistEgg(_targetEgg, eggIgnoreSecondsAfterStuck);
+            IgnoreEggTemporarily(CurrentTargetEgg, eggIgnoreSecondsAfterStuck);
             _stuckRecoveriesOnTarget = 0;
         }
     }

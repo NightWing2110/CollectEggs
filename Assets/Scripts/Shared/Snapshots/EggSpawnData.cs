@@ -6,9 +6,9 @@ namespace CollectEggs.Shared.Snapshots
     [Serializable]
     public struct EggSpawnData
     {
-        public string EggId;
-        public Vector3 Position;
-        public Color Color;
-        public int ScoreValue;
+        public string eggId;
+        public Vector3 position;
+        public Color color;
+        public int scoreValue;
     }
 }

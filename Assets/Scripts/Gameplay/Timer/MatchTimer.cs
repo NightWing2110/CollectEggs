@@ -7,7 +7,7 @@ namespace CollectEggs.Gameplay.Timer
         public float RemainingSeconds { get; private set; }
         public bool IsRunning { get; private set; }
 
-        public void BeginFromAuthority(float durationSeconds)
+        public void StartFromServerRules(float durationSeconds)
         {
             RemainingSeconds = Mathf.Max(0f, durationSeconds);
             IsRunning = RemainingSeconds > 0f;
@@ -19,7 +19,7 @@ namespace CollectEggs.Gameplay.Timer
             IsRunning = RemainingSeconds > 0f;
         }
 
-        public void StopFromAuthority()
+        public void StopFromServerState()
         {
             RemainingSeconds = 0f;
             IsRunning = false;

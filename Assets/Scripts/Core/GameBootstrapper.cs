@@ -1,9 +1,8 @@
-using System.Collections.Generic;
 using CollectEggs.Client;
 using CollectEggs.Client.View;
-using CollectEggs.Gameplay.Eggs;
 using CollectEggs.Gameplay.Players;
 using CollectEggs.Networking.Transport;
+using CollectEggs.Server.Adapters;
 using CollectEggs.Server.Simulation;
 using UnityEngine;
 
@@ -13,53 +12,45 @@ namespace CollectEggs.Core
     public sealed class GameBootstrapper : MonoBehaviour
     {
         [SerializeField]
-        private ServerMatchConfig matchConfig = new();
+        private ServerConfig localServerConfig = new();
 
-        private ServerSimulator _simulator;
-        private IGameTransport _transport;
+        private ServerSimulationController _serverSimulationController;
+        private IGameTransport _clientServerTransport;
         private ClientGameController _client;
         private EggViewManager _eggView;
         private PlayerSpawner _playerSpawner;
 
-        public ServerSimulator Simulator => _simulator;
-        public IGameTransport Transport => _transport;
+        public IGameTransport ClientServerTransport => _clientServerTransport;
 
         private void Start()
         {
             var gm = GetComponent<GameManager>();
-            var eggSpawner = GetComponent<EggSpawner>();
-            if (gm == null || eggSpawner == null)
+            var context = gm != null ? gm.SceneContext : null;
+            if (gm == null || context == null || !context.IsValid)
                 return;
-            _playerSpawner = gm.GetOrAdd<PlayerSpawner>();
-            _playerSpawner.ApplyDefaultPlayerPrefab(gm.PlayerPrefab);
-            matchConfig.Normalize();
-            _eggView = gm.GetOrAdd<EggViewManager>();
+            var eggSpawner = context.EggSpawner;
+            _playerSpawner = context.PlayerSpawner;
+            localServerConfig.Normalize();
+            _eggView = context.EggViewManager;
             if (eggSpawner.EggPrefab != null)
                 _eggView.SetEggPrefab(eggSpawner.EggPrefab);
-            _client = gm.GetOrAdd<ClientGameController>();
-            _client.Wire(_playerSpawner, _eggView);
+            _client = context.ClientGameController;
+            _client.SetDependencies(_playerSpawner, _eggView, context.EggCollectRequestController);
             var latency = new LatencyProfile(
-                matchConfig.transportLatencyMinSeconds,
-                matchConfig.transportLatencyMaxSeconds);
-            _transport = new SimulatedTransport(latency);
-            _client.AttachTransport(_transport, gm);
-            var provider = new ServerSpawnPointProvider(matchConfig, eggSpawner);
-            _simulator = new ServerSimulator(matchConfig, provider, _transport);
-            _simulator.StartMatch();
+                localServerConfig.simulatedTransportLatencyMinSeconds,
+                localServerConfig.simulatedTransportLatencyMaxSeconds);
+            _clientServerTransport = new SimulatedTransport(latency);
+            _client.AttachTransport(_clientServerTransport, gm, context.MatchTimer);
+            var worldQuery = new PhysicsServerWorldQuery(eggSpawner);
+            var provider = new ServerSpawnPointProvider(localServerConfig, worldQuery);
+            _serverSimulationController = new ServerSimulationController(localServerConfig, provider, _clientServerTransport);
+            _serverSimulationController.StartMatch();
         }
 
         private void Update()
         {
-            _transport?.Tick(Time.deltaTime);
-            _simulator?.Tick(Time.deltaTime);
-        }
-
-        public void NotifyEggCollectedForRespawn(
-            string collectedEggId,
-            IReadOnlyList<Vector3> livePlayerWorldPositions,
-            IReadOnlyList<Vector3> occupiedEggWorldPositions)
-        {
-            _simulator?.RequestRespawnEggAfterCollect(collectedEggId, livePlayerWorldPositions, occupiedEggWorldPositions);
+            _clientServerTransport?.Tick(Time.deltaTime);
+            _serverSimulationController?.Tick(Time.deltaTime);
         }
     }
 }

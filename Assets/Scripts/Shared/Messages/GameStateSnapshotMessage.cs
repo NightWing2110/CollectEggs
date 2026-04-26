@@ -7,16 +7,16 @@ namespace CollectEggs.Shared.Messages
     [Serializable]
     public sealed class GameStateSnapshotMessage : GameMessage
     {
-        public float RemainingTime;
-        public List<PlayerSnapshot> Players;
-        public List<EggSnapshot> Eggs;
-        public List<ScoreSnapshot> Scores;
+        public float remainingTime;
+        public List<PlayerSnapshot> players;
+        public List<EggSnapshot> eggs;
+        public List<ScoreSnapshot> scores;
 
         public GameStateSnapshotMessage()
         {
-            Players = new List<PlayerSnapshot>();
-            Eggs = new List<EggSnapshot>();
-            Scores = new List<ScoreSnapshot>();
+            players = new List<PlayerSnapshot>();
+            eggs = new List<EggSnapshot>();
+            scores = new List<ScoreSnapshot>();
         }
     }
 }

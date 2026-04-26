@@ -25,10 +25,10 @@ namespace CollectEggs.Bots
             if (HandleNoEggsInMatch())
                 return;
 
-            if (!IsEggValid(_targetEgg))
+            if (!IsEggValid(CurrentTargetEgg))
                 ClearTargetState();
 
-            if (DeferRetargetWhileCoastingOnStableEgg())
+            if (ShouldSkipRetarget())
                 return;
 
             CollectCandidateEggs();
@@ -49,16 +49,16 @@ namespace CollectEggs.Bots
             return true;
         }
 
-        private bool DeferRetargetWhileCoastingOnStableEgg()
+        private bool ShouldSkipRetarget()
         {
             var driftSq = eggPositionRepathThreshold * eggPositionRepathThreshold;
-            if (_state != BotState.Chasing || !IsEggValid(_targetEgg) || _path.Count == 0 || _pathIndex >= _path.Count)
+            if (_state != BotState.Chasing || !IsEggValid(CurrentTargetEgg) || _path.Count == 0 || _pathIndex >= _path.Count)
             {
                 _coastRetargetSkips = 0;
                 return false;
             }
 
-            var ew = _targetEgg.transform.position;
+            var ew = CurrentTargetEgg.transform.position;
             var dx = ew.x - _pathEggAnchor.x;
             var dz = ew.z - _pathEggAnchor.z;
             if (dx * dx + dz * dz > driftSq)
@@ -123,13 +123,13 @@ namespace CollectEggs.Bots
 
         private void ApplyTargetSelectionPick(in TargetSelectionPick pick)
         {
-            if (_targetEgg == null)
+            if (CurrentTargetEgg == null)
             {
                 SetTarget(pick.Egg, _evalBestPathCache, pick.Plan.ApproachWorld);
                 return;
             }
 
-            if (_targetEgg == pick.Egg)
+            if (CurrentTargetEgg == pick.Egg)
             {
                 if (KeepCurrentPathUnchanged(in pick))
                     return;

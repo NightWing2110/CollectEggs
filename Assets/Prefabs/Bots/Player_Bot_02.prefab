@@ -11,8 +11,9 @@ GameObject:
   - component: {fileID: 920000002}
   - component: {fileID: 920000005}
   - component: {fileID: 920000006}
-  - component: {fileID: 920000007}
   - component: {fileID: 920000008}
+  - component: {fileID: 920000009}
+  - component: {fileID: 920000010}
   m_Layer: 8
   m_Name: Player_Bot_02
   m_TagString: Player
@@ -67,18 +68,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gravityMultiplier: 1
---- !u!114 &920000007
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 920000001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1a96312bd0dd4ec6aaef2b95ea77c301, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &920000008
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -96,7 +85,57 @@ MonoBehaviour:
   isLocal: 1
   playerType: 0
   movement: {fileID: 920000006}
-  controller: {fileID: 920000007}
+  controller: {fileID: 0}
+--- !u!114 &920000009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 920000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e124266790c448f39e7e0f0661e7d9b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startMoveDelay: 0.5
+  retargetInterval: 0.4
+  retargetIntervalChasing: 0.72
+  repathInterval: 0.45
+  repathIntervalChasing: 0.9
+  repathTargetSwitchAdvantage: 0.75
+  waypointReachDistance: 0.2
+  stuckCheckInterval: 0.45
+  stuckDistanceThreshold: 0.08
+  maxStuckChecksBeforeRecover: 3
+  recoverMoveDuration: 0.25
+  collectProximitySlack: 0.14
+  approachMargin: 0.08
+  nearestEggsToPathfind: 4
+  eggPositionRepathThreshold: 0.3
+  earlyExitPathCellCount: 5
+  earlyExitPathCostMultiplier: 2.2
+  eggIgnoreSecondsAfterPathFail: 7
+  eggIgnoreSecondsAfterStuck: 6
+  stuckRecoveriesBeforeEggIgnore: 2
+--- !u!114 &920000010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 920000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 058e0b4e4e250154dab1474974a33d0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  label: {fileID: 0}
+  fallbackLabel: {fileID: 0}
+  offset: {x: 0, y: 2.35, z: 0}
+  fontSize: 3
+  fallbackFontSize: 42
+  color: {r: 0, g: 0, b: 0, a: 1}
 --- !u!1 &463436934304956098
 GameObject:
   m_ObjectHideFlags: 0

@@ -9,5 +9,6 @@ namespace CollectEggs.Server.State
         public Color Color;
         public int ScoreValue;
         public bool IsActive;
+        public string CollectedByPlayerId;
     }
 }

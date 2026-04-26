@@ -11,10 +11,7 @@ namespace CollectEggs.Networking.Transport
         private readonly List<QueuedMessage> _serverToClient = new();
         private readonly List<QueuedMessage> _clientToServer = new();
 
-        public SimulatedTransport(LatencyProfile latency)
-        {
-            _latency = latency ?? new LatencyProfile(0f, 0f);
-        }
+        public SimulatedTransport(LatencyProfile latency) => _latency = latency ?? new LatencyProfile(0f, 0f);
 
         public event Action<GameMessage> ClientMessageReceived;
         public event Action<GameMessage> ServerMessageReceived;
@@ -49,15 +46,13 @@ namespace CollectEggs.Networking.Transport
             for (var i = 0; i < queue.Count;)
             {
                 var q = queue[i];
-                if (q.DeliverAtUnityTime <= now)
+                if (q.DeliverAtTime <= now)
                 {
                     dispatch(q.Message);
                     queue.RemoveAt(i);
                 }
                 else
-                {
                     i++;
-                }
             }
         }
     }

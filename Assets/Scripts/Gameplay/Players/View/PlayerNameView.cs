@@ -50,7 +50,7 @@ namespace CollectEggs.Gameplay.Players.View
             labelGo.transform.SetParent(transform, false);
             labelGo.transform.localPosition = localOffset;
             label = labelGo.AddComponent<TextMeshPro>();
-            if (TryConfigureTmpLabel(label))
+            if (ConfigureTmpLabel(label))
                 return;
             Destroy(label);
             label = null;
@@ -74,7 +74,7 @@ namespace CollectEggs.Gameplay.Players.View
             labelTransform.forward = planarForward.normalized;
         }
 
-        private bool TryConfigureTmpLabel(TMP_Text tmpLabel)
+        private static bool ConfigureTmpLabel(TMP_Text tmpLabel)
         {
             if (tmpLabel == null)
                 return false;
@@ -96,9 +96,7 @@ namespace CollectEggs.Gameplay.Players.View
         {
             if (label != null)
                 return label.transform;
-            if (fallbackLabel != null)
-                return fallbackLabel.transform;
-            return null;
+            return fallbackLabel != null ? fallbackLabel.transform : null;
         }
     }
 }

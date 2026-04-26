@@ -7,40 +7,26 @@ namespace CollectEggs.Gameplay.Eggs
     {
         private static readonly List<EggEntity> ActiveEggs = new();
 
-        private string eggId = "";
-        private int scoreValue;
-        private bool isCollected;
+        private string _eggId = "";
+        private int _pointValue;
 
-        public string EggId => eggId;
-        public int ScoreValue => scoreValue;
+        public string EggId => _eggId;
+        public int PointValue => _pointValue;
 
         public static IReadOnlyList<EggEntity> Active => ActiveEggs;
 
         public void Configure(string id, int score)
         {
-            eggId = id ?? "";
-            scoreValue = Mathf.Max(0, score);
-            isCollected = false;
-        }
-
-        public bool MarkCollected()
-        {
-            if (isCollected)
-                return false;
-            isCollected = true;
-            return true;
+            _eggId = id ?? "";
+            _pointValue = Mathf.Max(0, score);
         }
 
         private void OnEnable()
         {
-            isCollected = false;
             if (!ActiveEggs.Contains(this))
                 ActiveEggs.Add(this);
         }
 
-        private void OnDisable()
-        {
-            ActiveEggs.Remove(this);
-        }
+        private void OnDisable() => ActiveEggs.Remove(this);
     }
 }

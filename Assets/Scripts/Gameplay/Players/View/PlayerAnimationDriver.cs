@@ -43,15 +43,9 @@ namespace CollectEggs.Gameplay.Players.View
 
         private void Awake()
         {
-            if (animator == null)
-            {
-                animator = GetComponent<Animator>();
-            }
+            if (animator == null) animator = GetComponent<Animator>();
 
-            if (trackedRoot == null)
-            {
-                trackedRoot = transform.parent != null ? transform.parent : transform;
-            }
+            if (trackedRoot == null) trackedRoot = transform.parent != null ? transform.parent : transform;
 
             InitializeSamplePosition();
         }
@@ -59,15 +53,11 @@ namespace CollectEggs.Gameplay.Players.View
         private void LateUpdate()
         {
             if (animator == null || trackedRoot == null)
-            {
                 return;
-            }
 
             var dt = Time.deltaTime;
             if (dt < minDeltaTime)
-            {
                 return;
-            }
 
             var current = trackedRoot.position;
             var delta = current - _lastWorldPosition;

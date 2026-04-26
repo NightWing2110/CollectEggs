@@ -5,12 +5,12 @@ namespace CollectEggs.Networking.Transport
     public sealed class QueuedMessage
     {
         public GameMessage Message { get; }
-        public float DeliverAtUnityTime { get; }
+        public float DeliverAtTime { get; }
 
-        public QueuedMessage(GameMessage message, float deliverAtUnityTime)
+        public QueuedMessage(GameMessage message, float deliverAtTime)
         {
             Message = message;
-            DeliverAtUnityTime = deliverAtUnityTime;
+            DeliverAtTime = deliverAtTime;
         }
     }
 }

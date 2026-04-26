@@ -8,13 +8,13 @@ namespace CollectEggs.Gameplay.Players
     public class PlayerEntity : MonoBehaviour
     {
         [SerializeField]
-        private string playerId = "local";
+        private string playerId = string.Empty;
 
         [SerializeField]
-        private string displayName = "Local Player";
+        private string displayName = string.Empty;
 
         [SerializeField]
-        private bool isLocal = true;
+        private bool isLocal;
 
         [SerializeField]
         private PlayerType playerType = PlayerType.Local;
@@ -27,21 +27,18 @@ namespace CollectEggs.Gameplay.Players
 
         public string PlayerId => playerId;
         public string DisplayName => displayName;
-        public bool IsLocal => isLocal;
-        public PlayerType Type => playerType;
-        public ActorMovement Movement => movement;
         public PlayerController Controller => controller;
 
         public void ConfigureFromServer(PlayerSpawnData data, ActorMovement actorMovement, PlayerController playerController)
         {
-            playerId = data.PlayerId;
-            displayName = data.DisplayName;
-            isLocal = data.IsLocalPlayer;
-            playerType = data.PlayerType;
+            playerId = data.playerId;
+            displayName = data.displayName;
+            isLocal = data.isLocalClientPlayer;
+            playerType = data.playerType;
             movement = actorMovement;
             controller = playerController;
             if (movement != null)
-                movement.SetMoveSpeedFromAuthority(data.MoveSpeed);
+                movement.SetMoveSpeedFromServerRules(data.moveSpeed);
         }
     }
 }

@@ -5,7 +5,7 @@ using UnityEngine;
 namespace CollectEggs.Server.Simulation
 {
     [Serializable]
-    public sealed class ServerMatchConfig
+    public sealed class ServerConfig
     {
         private static readonly Vector3[] DefaultPlayerSpawnPoints =
         {
@@ -19,16 +19,17 @@ namespace CollectEggs.Server.Simulation
         public float matchDurationSeconds = 60f;
         public float playerMoveSpeed = 6f;
         public float eggCollectRadius = 0.75f;
+        public float eggCollectValidationSlack = 0.35f;
         public int eggScoreValue = 1;
-        public int playerCount = 5;
+        public const int PlayerCount = 5;
         public int initialEggCount = 20;
-        public int serverRandomSeed;
         public float botSpawnRingRadius = 6f;
-        public float snapshotIntervalMinSeconds = 0.1f;
-        public float snapshotIntervalMaxSeconds = 0.5f;
-        public float transportLatencyMinSeconds = 0f;
-        public float transportLatencyMaxSeconds = 0f;
+        public float snapshotIntervalMinSeconds = 0.1f; //0.1f
+        public float snapshotIntervalMaxSeconds = 0.5f; //0.5f
+        public float simulatedTransportLatencyMinSeconds = 0.3f; //0.3
+        public float simulatedTransportLatencyMaxSeconds = 0.5f; //0.5
         public List<Vector3> playerSpawnPoints = new();
+
 
         public void Normalize()
         {
@@ -42,8 +43,8 @@ namespace CollectEggs.Server.Simulation
             matchDurationSeconds = Mathf.Max(1f, matchDurationSeconds);
             playerMoveSpeed = Mathf.Max(0f, playerMoveSpeed);
             eggCollectRadius = Mathf.Max(0.01f, eggCollectRadius);
+            eggCollectValidationSlack = Mathf.Max(0f, eggCollectValidationSlack);
             eggScoreValue = Mathf.Max(0, eggScoreValue);
-            playerCount =   Mathf.Max(1, playerCount);
             initialEggCount = Mathf.Max(1, initialEggCount);
             botSpawnRingRadius = Mathf.Max(0.1f, botSpawnRingRadius);
 
@@ -51,11 +52,11 @@ namespace CollectEggs.Server.Simulation
             var snapB = snapshotIntervalMaxSeconds;
             snapshotIntervalMinSeconds = Mathf.Min(snapA, snapB);
             snapshotIntervalMaxSeconds = Mathf.Max(snapA, snapB);
-            snapshotIntervalMinSeconds = Mathf.Max(0.01f, snapshotIntervalMinSeconds);
-            snapshotIntervalMaxSeconds = Mathf.Max(snapshotIntervalMinSeconds + 0.01f, snapshotIntervalMaxSeconds);
+            snapshotIntervalMinSeconds = Mathf.Max(0f, snapshotIntervalMinSeconds);
+            snapshotIntervalMaxSeconds = Mathf.Max(snapshotIntervalMinSeconds, snapshotIntervalMaxSeconds);
 
-            transportLatencyMinSeconds = Mathf.Max(0f, transportLatencyMinSeconds);
-            transportLatencyMaxSeconds = Mathf.Max(transportLatencyMinSeconds, transportLatencyMaxSeconds);
+            simulatedTransportLatencyMinSeconds = Mathf.Max(0f, simulatedTransportLatencyMinSeconds);
+            simulatedTransportLatencyMaxSeconds = Mathf.Max(simulatedTransportLatencyMinSeconds, simulatedTransportLatencyMaxSeconds);
         }
     }
 }

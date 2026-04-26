@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CollectEggs.Core;
+using CollectEggs.Gameplay.Collection;
 using CollectEggs.Gameplay.Players;
 using CollectEggs.Gameplay.Timer;
 using CollectEggs.Client.View;
@@ -16,34 +17,34 @@ namespace CollectEggs.Client
         private IGameTransport _transport;
         private MatchTimer _matchTimer;
         private GameManager _gameManager;
-
-        public IReadOnlyList<PlayerEntity> LastPlayers => _lastPlayers;
-        public PlayerEntity LocalPlayerEntity => _localPlayerEntity;
-
-        private readonly List<PlayerEntity> _lastPlayers = new();
+        private EggCollectRequestController _eggCollectRequests;
+        [SerializeField] private List<PlayerEntity> matchPlayers = new();
+        private readonly Dictionary<string, PlayerEntity> _playersById = new();
+        private readonly ClientMatchInitializer _matchInitializer = new();
+        private readonly ClientSnapshotApplier _snapshotApplier = new();
         private PlayerEntity _localPlayerEntity;
 
-        public void Wire(PlayerSpawner playerSpawner, EggViewManager eggViewManager)
+        public void SetDependencies(
+            PlayerSpawner playerSpawner,
+            EggViewManager eggViewManager,
+            EggCollectRequestController eggCollectRequests)
         {
             _playerSpawner = playerSpawner;
             _eggViewManager = eggViewManager;
+            _eggCollectRequests = eggCollectRequests;
         }
 
-        public void AttachTransport(IGameTransport transport, GameManager gameManager)
+        public void AttachTransport(IGameTransport transport, GameManager gameManager, MatchTimer matchTimer)
         {
             DetachTransport();
             _transport = transport;
             _gameManager = gameManager;
-            if (gameManager != null)
-                _matchTimer = gameManager.GetComponent<MatchTimer>();
+            _matchTimer = matchTimer;
             if (_transport != null)
                 _transport.ClientMessageReceived += OnClientMessage;
         }
 
-        private void OnDestroy()
-        {
-            DetachTransport();
-        }
+        private void OnDestroy() => DetachTransport();
 
         private void DetachTransport()
         {
@@ -62,56 +63,43 @@ namespace CollectEggs.Client
                 case GameStateSnapshotMessage s:
                     HandleGameStateSnapshot(s);
                     break;
-                case EggSpawnedMessage e:
-                    HandleEggSpawned(e);
+                case MatchEndedMessage e:
+                    HandleMatchEnded(e);
                     break;
             }
         }
 
         private void HandleMatchStarted(MatchStartedMessage message)
         {
-            _lastPlayers.Clear();
+            matchPlayers.Clear();
+            _playersById.Clear();
             _localPlayerEntity = null;
-            if (message == null || _playerSpawner == null || _eggViewManager == null)
-                return;
-            _playerSpawner.RebuildSpawnParents();
-            var botVisualIndex = 0;
-            foreach (var player in message.Players)
-            {
-                var entity = _playerSpawner.SpawnFromServerData(player, botVisualIndex);
-                if (entity == null)
-                    continue;
-                _lastPlayers.Add(entity);
-                if (player.IsLocalPlayer)
-                    _localPlayerEntity = entity;
-                else
-                    botVisualIndex++;
-            }
-
-            var root = _playerSpawner.EggsRoot;
-            _eggViewManager.ClearTrackedEggsForNewMatch();
-            foreach (var egg in message.Eggs)
-                _eggViewManager.SpawnFromServerData(egg, root);
-            var gm = GameManager.Instance;
-            var boot = gm != null ? gm.GetComponent<GameBootstrapper>() : null;
-            if (gm != null && boot != null)
-                gm.ApplyMatchStarted(message, _lastPlayers, _localPlayerEntity, boot);
+            var initialization = ClientMatchInitializer.Initialize(message, _playerSpawner, _eggViewManager, _gameManager);
+            matchPlayers.AddRange(initialization.Players);
+            foreach (var player in initialization.PlayersById)
+                _playersById[player.Key] = player.Value;
+            _localPlayerEntity = initialization.LocalPlayer;
         }
 
         private void HandleGameStateSnapshot(GameStateSnapshotMessage message)
         {
-            if (message == null || _matchTimer == null)
-                return;
-            _matchTimer.SetRemainingSecondsFromNetwork(message.RemainingTime);
-            if (message.RemainingTime <= 0f)
-                _gameManager?.NotifyMatchExpiredFromNetwork();
+            _snapshotApplier.ApplySnapshot(
+                message,
+                _matchTimer,
+                _eggViewManager,
+                _playerSpawner,
+                _eggCollectRequests,
+                _playersById,
+                _localPlayerEntity);
         }
 
-        private void HandleEggSpawned(EggSpawnedMessage message)
+        private void HandleMatchEnded(MatchEndedMessage message)
         {
-            if (message == null || _eggViewManager == null || _playerSpawner == null)
+            if (message == null || _matchTimer == null)
                 return;
-            _eggViewManager.SpawnFromServerData(message.Egg, _playerSpawner.EggsRoot);
+            _matchTimer.SetRemainingSecondsFromNetwork(0f);
+            _snapshotApplier.ApplyFinalScores(message, _eggCollectRequests);
+            _gameManager?.NotifyMatchEndedFromServer(message.winnerPlayerIds);
         }
     }
 }

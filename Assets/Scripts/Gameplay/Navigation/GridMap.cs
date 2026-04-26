@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace CollectEggs.Gameplay
+namespace CollectEggs.Gameplay.Navigation
 {
     public class GridMap : MonoBehaviour
     {

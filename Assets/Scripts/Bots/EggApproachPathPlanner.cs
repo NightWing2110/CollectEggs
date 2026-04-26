@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using CollectEggs.Gameplay;
 using CollectEggs.Gameplay.Eggs;
 using CollectEggs.Gameplay.Navigation;
 using UnityEngine;
@@ -93,7 +92,6 @@ namespace CollectEggs.Bots
             public bool StopAll;
         }
 
-        // Plans and returns the best approach path to a specific egg.
         public static bool FindBestApproachPath(
             GridMap grid,
             Vector3 botWorld,
@@ -131,7 +129,6 @@ namespace CollectEggs.Bots
             return true;
         }
 
-        // Builds the primary/secondary/tertiary approach radius sequence.
         private static (float primary, float secondary, float tertiary) BuildApproachRings(
             EggApproachPlannerSettings settings,
             float maxReach)
@@ -143,7 +140,6 @@ namespace CollectEggs.Bots
             return (ringPrimary, ringSecondary, ringTertiary);
         }
 
-        // Evaluates ring passes in strict/loose order and tracks the best path.
         private static void FindBestApproachPathToEgg(ref PlannerContext ctx)
         {
             var rings = BuildApproachRings(ctx.Settings, ctx.MaxReach);
@@ -166,7 +162,6 @@ namespace CollectEggs.Bots
                 EnumerateApproachSamples(ref ctx, rings.tertiary, false);
         }
 
-        // Samples all cardinal/diagonal approach directions for one ring.
         private static void EnumerateApproachSamples(
             ref PlannerContext ctx,
             float ringR,
@@ -192,10 +187,8 @@ namespace CollectEggs.Bots
             }
         }
 
-        // Applies the same short-path / cheap-path early-exit policy.
         private static bool EarlyExitAfterImprovement(int pathCount, float runBestCost, int earlyCells, float earlyCost) => pathCount > 0 && (pathCount <= earlyCells || runBestCost < earlyCost);
 
-        // Builds one approach sample, validates it, then runs A* to that cell.
         private static bool SampleApproachDirection(
             ref PlannerContext ctx,
             float ringR,
@@ -217,7 +210,6 @@ namespace CollectEggs.Bots
             return BuildPathToApproach(ctx.Grid, ctx.BotWorld, approachCellWorld, ctx.AstarScratch, out pathCost);
         }
 
-        // Snaps sample position to a walkable grid cell still within collect reach.
         private static bool ResolveWalkableApproachCellWorld(
             GridMap grid,
             Vector3 eggPos,
@@ -235,7 +227,6 @@ namespace CollectEggs.Bots
             return FlatDistanceXZ(cellWorld, eggPos) <= collectReachRadius + ReachDistanceEpsilon;
         }
 
-        // Dispatches strict/loose approach validation policies.
         private static bool ValidateApproachPoint(
             GridMap grid,
             Vector3 cellWorld,
@@ -249,7 +240,6 @@ namespace CollectEggs.Bots
                 : ValidateLooseApproachPoint(grid, cellWorld);
         }
 
-        // Performs strict clearance and line-of-sight checks for approach points.
         private static bool ValidateStrictApproachPoint(
             GridMap grid,
             Vector3 cellWorld,
@@ -267,13 +257,8 @@ namespace CollectEggs.Bots
             return !Physics.Linecast(lineA, lineB, grid.ObstacleLayer, QueryTriggerInteraction.Ignore);
         }
 
-        // Performs loose clearance-only checks for fallback pass.
-        private static bool ValidateLooseApproachPoint(GridMap grid, Vector3 cellWorld)
-        {
-            return grid.HasPhysicsClearance(cellWorld, LooseClearanceRadius);
-        }
+        private static bool ValidateLooseApproachPoint(GridMap grid, Vector3 cellWorld) => grid.HasPhysicsClearance(cellWorld, LooseClearanceRadius);
 
-        // Runs A* to one approach cell and computes path traversal cost.
         private static bool BuildPathToApproach(
             GridMap grid,
             Vector3 botWorld,

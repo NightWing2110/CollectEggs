@@ -1,3 +1,4 @@
+using System.Linq;
 using CollectEggs.Server.State;
 using CollectEggs.Shared.Messages;
 using CollectEggs.Shared.Snapshots;
@@ -10,32 +11,51 @@ namespace CollectEggs.Server.Simulation
         {
             var msg = new GameStateSnapshotMessage
             {
-                RemainingTime = state.RemainingTime
+                remainingTime = state.RemainingTime
             };
-            foreach (var kv in state.Players)
+            foreach (var p in state.Players.Select(kv => kv.Value))
             {
-                var p = kv.Value;
-                msg.Players.Add(new PlayerSnapshot
+                msg.players.Add(new PlayerSnapshot
                 {
-                    PlayerId = p.PlayerId,
-                    Position = p.Position,
-                    Score = p.Score
+                    playerId = p.PlayerId,
+                    position = p.Position,
+                    lastProcessedInputSequence = p.LastProcessedInputSequence
                 });
-                msg.Scores.Add(new ScoreSnapshot { PlayerId = p.PlayerId, Score = p.Score });
+                msg.scores.Add(new ScoreSnapshot { playerId = p.PlayerId, score = p.Score });
             }
 
-            foreach (var kv in state.Eggs)
+            foreach (var e in state.Eggs.Select(kv => kv.Value))
             {
-                var e = kv.Value;
-                msg.Eggs.Add(new EggSnapshot
+                msg.eggs.Add(new EggSnapshot
                 {
-                    EggId = e.EggId,
-                    Position = e.Position,
-                    Color = e.Color,
-                    ScoreValue = e.ScoreValue,
-                    IsActive = e.IsActive
+                    eggId = e.EggId,
+                    position = e.Position,
+                    color = e.Color,
+                    scoreValue = e.ScoreValue,
+                    isActive = e.IsActive,
+                    collectedByPlayerId = e.CollectedByPlayerId
                 });
             }
+
+            return msg;
+        }
+
+        public static MatchEndedMessage BuildMatchEnded(ServerGameState state)
+        {
+            var msg = new MatchEndedMessage
+            {
+                ServerTime = state.ServerTime
+            };
+            var highestScore = 0;
+            foreach (var p in state.Players.Select(kv => kv.Value))
+            {
+                msg.scores.Add(new ScoreSnapshot { playerId = p.PlayerId, score = p.Score });
+                if (p.Score > highestScore)
+                    highestScore = p.Score;
+            }
+
+            foreach (var p in state.Players.Select(kv => kv.Value).Where(p => p.Score == highestScore))
+                msg.winnerPlayerIds.Add(p.PlayerId);
 
             return msg;
         }

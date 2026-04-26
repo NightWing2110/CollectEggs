@@ -4,28 +4,28 @@ using UnityEngine;
 namespace CollectEggs.Gameplay.Collection
 {
     [DefaultExecutionOrder(15)]
-    public sealed class EggCollectSystem : MonoBehaviour
+    public sealed class ProximityEggCollector : MonoBehaviour
     {
         [SerializeField]
         private float collectRadiusSlack = 0.14f;
 
-        private float _authorityCollectRadius;
+        private float _serverRuleCollectRadius;
         private PlayerEntity _collector;
 
         public void Initialize(PlayerEntity collector) => _collector = collector;
 
-        public void SetCollectRadiusFromAuthority(float radius) =>
-            _authorityCollectRadius = Mathf.Max(0.01f, radius);
+        public void SetCollectRadiusFromServerRules(float radius) =>
+            _serverRuleCollectRadius = Mathf.Max(0.01f, radius);
 
         private void Update()
         {
-            if (_collector == null || _authorityCollectRadius <= 0f)
+            if (_collector == null || _serverRuleCollectRadius <= 0f)
                 return;
             var center = _collector.transform.position;
-            EggCollectProximity.CollectAnyNearbyEgg(
+            EggCollectProximity.RequestCollectFirstEggInRadius(
                 _collector,
                 new Vector2(center.x, center.z),
-                _authorityCollectRadius,
+                _serverRuleCollectRadius,
                 collectRadiusSlack);
         }
     }

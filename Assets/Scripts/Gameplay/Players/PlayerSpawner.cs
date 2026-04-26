@@ -1,71 +1,39 @@
-using System.Collections.Generic;
 using CollectEggs.Bots;
 using CollectEggs.Gameplay.Movement;
+using CollectEggs.Gameplay.Navigation;
 using CollectEggs.Gameplay.Players.View;
-using CollectEggs.Shared.Data;
 using CollectEggs.Shared.Snapshots;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 namespace CollectEggs.Gameplay.Players
 {
     public class PlayerSpawner : MonoBehaviour
     {
-        private static readonly string[] BotPrefabAssetPaths =
-        {
-            "Assets/Prefabs/Bots/Player_Bot_01.prefab",
-            "Assets/Prefabs/Bots/Player_Bot_02.prefab",
-            "Assets/Prefabs/Bots/Player_Bot_03.prefab",
-            "Assets/Prefabs/Bots/Player_Bot_04.prefab"
-        };
-
         [SerializeField]
         private GameObject localPlayerPrefab;
 
-        private Transform PlayersRoot { get; set; }
-        public Transform EggsRoot { get; private set; }
-        private Camera _cachedNameCamera;
+        [SerializeField]
+        private GameObject[] botPrefabs;
 
-        public void ApplyDefaultPlayerPrefab(GameObject prefab)
-        {
-            if (prefab != null)
-                localPlayerPrefab = prefab;
-        }
+        [SerializeField]
+        private Transform playersRoot;
+
+        [SerializeField]
+        private Transform eggsRoot;
+
+        private Transform PlayersRoot => playersRoot;
+        public Transform EggsRoot => eggsRoot;
+        private Camera _cachedNameCamera;
+        private GridMap _navigationGrid;
+
+        public void SetNavigationGrid(GridMap navigationGrid) => _navigationGrid = navigationGrid;
 
         public void RebuildSpawnParents()
         {
-            Transform spawnGroups = null;
-            foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
-            {
-                if (root.name == "SpawnGroups")
-                {
-                    spawnGroups = root.transform;
-                    break;
-                }
-            }
-
-            if (spawnGroups == null)
-                spawnGroups = new GameObject("SpawnGroups").transform;
-
-            var playersChild = spawnGroups.Find("Players");
-            if (playersChild == null)
-            {
-                playersChild = new GameObject("Players").transform;
-                playersChild.SetParent(spawnGroups, false);
-            }
-
-            var eggsChild = spawnGroups.Find("Eggs");
-            if (eggsChild == null)
-            {
-                eggsChild = new GameObject("Eggs").transform;
-                eggsChild.SetParent(spawnGroups, false);
-            }
-
-            PlayersRoot = playersChild;
-            EggsRoot = eggsChild;
+            if (playersRoot == null)
+                Debug.LogError("PlayerSpawner.playersRoot is not assigned.");
+            if (eggsRoot == null)
+                Debug.LogError("PlayerSpawner.eggsRoot is not assigned.");
         }
 
         public PlayerEntity SpawnFromServerData(PlayerSpawnData data, int botVisualIndex)
@@ -73,7 +41,7 @@ namespace CollectEggs.Gameplay.Players
             if (PlayersRoot == null)
                 RebuildSpawnParents();
             var nameCamera = ResolveNameCamera();
-            return data.IsLocalPlayer
+            return data.isLocalClientPlayer
                 ? SpawnLocalFromServer(data, nameCamera)
                 : SpawnBotFromServer(data, botVisualIndex, nameCamera);
         }
@@ -82,7 +50,7 @@ namespace CollectEggs.Gameplay.Players
         {
             if (localPlayerPrefab == null)
                 return null;
-            var go = Instantiate(localPlayerPrefab, data.SpawnPosition, Quaternion.identity, PlayersRoot);
+            var go = Instantiate(localPlayerPrefab, data.spawnPosition, Quaternion.identity, PlayersRoot);
             go.name = "Player_Local";
             var movement = go.GetComponent<ActorMovement>();
             var controller = go.GetComponent<PlayerController>();
@@ -90,48 +58,40 @@ namespace CollectEggs.Gameplay.Players
             if (entity == null)
                 return null;
             entity.ConfigureFromServer(data, movement, controller);
-            AttachNameView(entity, data.DisplayName, nameCamera);
+            AttachNameView(entity, data.displayName, nameCamera);
             return entity;
         }
 
         private PlayerEntity SpawnBotFromServer(PlayerSpawnData data, int botVisualIndex, Camera nameCamera)
         {
-            var botPrefab = ResolveBotPrefab(botVisualIndex, localPlayerPrefab);
+            var botPrefab = ResolveBotPrefab(botVisualIndex);
             if (botPrefab == null)
                 return null;
-            var go = Instantiate(botPrefab, data.SpawnPosition, Quaternion.identity, PlayersRoot);
+            var go = Instantiate(botPrefab, data.spawnPosition, Quaternion.identity, PlayersRoot);
             go.name = $"Player_Bot_{botVisualIndex + 1:00}";
             var playerController = go.GetComponent<PlayerController>();
             if (playerController != null)
-            {
-                playerController.enabled = false;
-                Destroy(playerController);
-            }
+                Debug.LogError($"{botPrefab.name} should not include PlayerController.");
 
-            // TODO Phase 2+: replace BotController local movement with server-driven ServerBotSimulation + PlayerSnapshot + client RemotePlayerView interpolation.
-            if (go.GetComponent<BotController>() == null)
-                go.AddComponent<BotController>();
+            var botController = go.GetComponent<BotController>();
+            if (botController == null)
+                Debug.LogError($"{botPrefab.name} is missing BotController.");
+            else
+                botController.SetNavigationGrid(_navigationGrid);
             var entity = go.GetComponent<PlayerEntity>();
             if (entity == null)
                 return null;
             entity.ConfigureFromServer(data, go.GetComponent<ActorMovement>(), null);
-            AttachNameView(entity, data.DisplayName, nameCamera);
+            AttachNameView(entity, data.displayName, nameCamera);
             return entity;
         }
 
-        private static GameObject ResolveBotPrefab(int botIndex, GameObject fallbackPrefab)
+        private GameObject ResolveBotPrefab(int botIndex)
         {
-            if (fallbackPrefab == null)
-                return null;
-            if (BotPrefabAssetPaths.Length == 0)
-                return fallbackPrefab;
-            var assetPath = BotPrefabAssetPaths[Mathf.Abs(botIndex) % BotPrefabAssetPaths.Length];
-#if UNITY_EDITOR
-            var loaded = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-            return loaded != null ? loaded : fallbackPrefab;
-#else
-            return fallbackPrefab;
-#endif
+            if (botPrefabs == null || botPrefabs.Length == 0)
+                return localPlayerPrefab;
+            var prefab = botPrefabs[Mathf.Abs(botIndex) % botPrefabs.Length];
+            return prefab != null ? prefab : localPlayerPrefab;
         }
 
         private Camera ResolveNameCamera()
@@ -148,7 +108,10 @@ namespace CollectEggs.Gameplay.Players
                 return;
             var nameView = entity.GetComponent<PlayerNameView>();
             if (nameView == null)
-                nameView = entity.gameObject.AddComponent<PlayerNameView>();
+            {
+                Debug.LogError($"{entity.name} is missing PlayerNameView.");
+                return;
+            }
             nameView.Initialize(displayName, targetCamera);
         }
     }

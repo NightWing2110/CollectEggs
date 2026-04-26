@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 920000006}
   - component: {fileID: 920000007}
   - component: {fileID: 920000008}
+  - component: {fileID: 920000009}
   m_Layer: 8
   m_Name: Player
   m_TagString: Player
@@ -79,6 +80,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a96312bd0dd4ec6aaef2b95ea77c301, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  enableClientPrediction: 0
 --- !u!114 &920000008
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -97,6 +99,22 @@ MonoBehaviour:
   playerType: 0
   movement: {fileID: 920000006}
   controller: {fileID: 920000007}
+--- !u!114 &920000009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 920000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 058e0b4e4e250154dab1474974a33d0c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  label: {fileID: 0}
+  fallbackLabel: {fileID: 0}
+  localOffset: {x: 0, y: 2.1, z: 0}
+  faceCamera: 1
 --- !u!1 &138889357328662871
 GameObject:
   m_ObjectHideFlags: 0

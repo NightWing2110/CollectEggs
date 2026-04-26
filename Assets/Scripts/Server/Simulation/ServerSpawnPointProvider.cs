@@ -1,19 +1,19 @@
 using System;
 using System.Collections.Generic;
-using CollectEggs.Gameplay.Eggs;
+using System.Linq;
 using UnityEngine;
 
 namespace CollectEggs.Server.Simulation
 {
     public sealed class ServerSpawnPointProvider : ISpawnPointProvider
     {
-        private readonly ServerMatchConfig _config;
-        private readonly EggSpawner _boundsSource;
+        private readonly ServerConfig _config;
+        private readonly IServerWorldQuery _worldQuery;
 
-        public ServerSpawnPointProvider(ServerMatchConfig config, EggSpawner boundsSource)
+        public ServerSpawnPointProvider(ServerConfig config, IServerWorldQuery worldQuery)
         {
             _config = config;
-            _boundsSource = boundsSource;
+            _worldQuery = worldQuery;
         }
 
         public IReadOnlyList<Vector3> CreatePlayerSpawnPositions(int playerCount, System.Random rng)
@@ -26,8 +26,7 @@ namespace CollectEggs.Server.Simulation
 
             var source = _config.playerSpawnPoints ?? new List<Vector3>();
             var candidates = new List<Vector3>(source.Count);
-            foreach (var p in source)
-                candidates.Add(p);
+            candidates.AddRange(source);
 
             if (candidates.Count == 0)
             {
@@ -35,9 +34,7 @@ namespace CollectEggs.Server.Simulation
                 return result;
             }
 
-            var center = Vector3.zero;
-            foreach (var p in candidates)
-                center += p;
+            var center = candidates.Aggregate(Vector3.zero, (current, p) => current + p);
             center /= candidates.Count;
 
             Shuffle(candidates, rng);
@@ -51,6 +48,28 @@ namespace CollectEggs.Server.Simulation
                 AddRingPositions(result, remaining, center, _config.botSpawnRingRadius);
 
             return result;
+        }
+
+        public bool ResolvePlayerMove(
+            Vector3 currentPosition,
+            Vector2 input,
+            float speed,
+            float deltaTime,
+            out Vector3 resolvedPosition)
+        {
+            if (input.sqrMagnitude > 1f)
+                input.Normalize();
+            var displacement = new Vector3(input.x, 0f, input.y) * Mathf.Max(0f, speed) * Mathf.Max(0f, deltaTime);
+            var candidate = currentPosition + displacement;
+            if (_worldQuery != null &&
+                _worldQuery.GetBlockingOverlap(candidate, _worldQuery.MoveCheckRadius))
+            {
+                resolvedPosition = currentPosition;
+                return false;
+            }
+
+            resolvedPosition = candidate;
+            return true;
         }
 
         private static void Shuffle(List<Vector3> list, System.Random rng)
@@ -73,23 +92,19 @@ namespace CollectEggs.Server.Simulation
             }
         }
 
-        public bool GetEggSpawnPosition(
-            int eggIndex,
-            System.Random rng,
+        public bool GetEggSpawnPosition(System.Random rng,
             IReadOnlyList<Vector3> playerWorldPositions,
             IReadOnlyList<Vector3> occupiedEggWorldPositions,
             out Vector3 position)
         {
             position = default;
-            if (_boundsSource == null || rng == null)
+            if (_worldQuery == null || rng == null || !_worldQuery.GetEggSpawnBounds(out var min, out var max))
                 return false;
-            var min = _boundsSource.SpawnBoundsMin;
-            var max = _boundsSource.SpawnBoundsMax;
             const int maxAttempts = 96;
             for (var attempt = 0; attempt < maxAttempts; attempt++)
             {
                 var p = SampleInBounds(min, max, rng);
-                if (!SnapPositionToGround(ref p))
+                if (!_worldQuery.SnapEggSpawnToGround(p, out p))
                     continue;
                 if (!IsSpawnValid(p, playerWorldPositions, occupiedEggWorldPositions, true))
                     continue;
@@ -100,7 +115,7 @@ namespace CollectEggs.Server.Simulation
             for (var attempt = 0; attempt < 48; attempt++)
             {
                 var p = SampleInBounds(min, max, rng);
-                if (!SnapPositionToGround(ref p))
+                if (!_worldQuery.SnapEggSpawnToGround(p, out p))
                     continue;
                 if (!IsSpawnValid(p, playerWorldPositions, occupiedEggWorldPositions, false))
                     continue;
@@ -122,19 +137,6 @@ namespace CollectEggs.Server.Simulation
             return new Vector3(LerpRng(min.x, max.x, rng), LerpRng(min.y, max.y, rng), LerpRng(min.z, max.z, rng));
         }
 
-        private bool SnapPositionToGround(ref Vector3 p)
-        {
-            var ground = _boundsSource.GroundLayer;
-            if (ground.value == 0)
-                return true;
-            var origin = p + Vector3.up * _boundsSource.GroundProbeHeight;
-            if (!Physics.Raycast(origin, Vector3.down, out var hit, _boundsSource.GroundProbeDistance, ground.value, QueryTriggerInteraction.Ignore))
-                return false;
-            var y = hit.point.y + _boundsSource.EggCenterOffsetAboveGround;
-            p = new Vector3(p.x, y, p.z);
-            return true;
-        }
-
         private bool IsSpawnValid(
             Vector3 p,
             IReadOnlyList<Vector3> playerWorldPositions,
@@ -145,60 +147,36 @@ namespace CollectEggs.Server.Simulation
                 return false;
             if (requireEggSeparation && !HasMinDistanceFromOccupiedEggs(p, occupiedEggWorldPositions))
                 return false;
-            if (!IsClearOfCollisions(p))
-                return false;
-            return true;
+            return IsClearOfCollisions(p);
         }
 
         private bool HasMinDistanceFromPlayers(Vector3 p, IReadOnlyList<Vector3> playerWorldPositions)
         {
             if (playerWorldPositions == null || playerWorldPositions.Count == 0)
                 return true;
-            var minD = _boundsSource != null ? _boundsSource.MinHorizontalDistanceFromPlayer : 2.5f;
+            var minD = _worldQuery?.MinHorizontalDistanceFromPlayer ?? 2.5f;
             var minDistanceSq = minD * minD;
-            foreach (var pp in playerWorldPositions)
-            {
-                var dx = p.x - pp.x;
-                var dz = p.z - pp.z;
-                if (dx * dx + dz * dz < minDistanceSq)
-                    return false;
-            }
-
-            return true;
+            return !(from pp in playerWorldPositions let dx = p.x - pp.x let dz = p.z - pp.z where dx * dx + dz * dz < minDistanceSq select dx).Any();
         }
 
         private bool HasMinDistanceFromOccupiedEggs(Vector3 p, IReadOnlyList<Vector3> occupiedEggWorldPositions)
         {
             if (occupiedEggWorldPositions == null || occupiedEggWorldPositions.Count == 0)
                 return true;
-            var r = _boundsSource.OverlapCheckRadius;
+            var r = _worldQuery?.EggSpawnCheckRadius ?? 0.45f;
             var minCenter = Mathf.Max(r * 2.1f, 0.35f);
             var minSq = minCenter * minCenter;
-            foreach (var e in occupiedEggWorldPositions)
-            {
-                var dx = p.x - e.x;
-                var dz = p.z - e.z;
-                if (dx * dx + dz * dz < minSq)
-                    return false;
-            }
-
-            return true;
+            return !(from e in occupiedEggWorldPositions let dx = p.x - e.x let dz = p.z - e.z where dx * dx + dz * dz < minSq select dx).Any();
         }
 
         private bool IsClearOfCollisions(Vector3 p)
         {
-            var r = _boundsSource.OverlapCheckRadius;
-            var blocking = _boundsSource.BlockingLayer;
-            if (blocking.value != 0 && Physics.CheckSphere(p, r, blocking, QueryTriggerInteraction.Ignore))
+            if (_worldQuery == null)
+                return true;
+            var r = _worldQuery.EggSpawnCheckRadius;
+            if (_worldQuery.GetBlockingOverlap(p, r))
                 return false;
-            var hits = Physics.OverlapSphere(p, r, -1, QueryTriggerInteraction.Ignore);
-            foreach (var col in hits)
-            {
-                if (col != null && col.CompareTag("Egg"))
-                    return false;
-            }
-
-            return true;
+            return !_worldQuery.HasEggOverlap(p, r);
         }
     }
 }

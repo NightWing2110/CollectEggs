@@ -9,10 +9,7 @@ namespace CollectEggs.Gameplay.Scoring
         private readonly Dictionary<string, int> _scores = new();
         public event Action<string, int> ScoreChanged;
 
-        public void ResetScores()
-        {
-            _scores.Clear();
-        }
+        public void ResetScores() => _scores.Clear();
 
         public void EnsurePlayer(string playerId)
         {
@@ -23,37 +20,14 @@ namespace CollectEggs.Gameplay.Scoring
             ScoreChanged?.Invoke(playerId, 0);
         }
 
-        public void AddScore(string playerId, int amount)
+        public void SetScore(string playerId, int score)
         {
             if (string.IsNullOrWhiteSpace(playerId))
                 return;
-            if (amount <= 0)
-                return;
-            _scores.TryAdd(playerId, 0);
-            _scores[playerId] += amount;
+            _scores[playerId] = Math.Max(0, score);
             ScoreChanged?.Invoke(playerId, _scores[playerId]);
         }
 
-        public int GetScore(string playerId)
-        {
-            return string.IsNullOrWhiteSpace(playerId) ? 0 : _scores.GetValueOrDefault(playerId, 0);
-        }
-
-        public bool GetWinner(out string winnerId, out int winnerScore)
-        {
-            winnerId = string.Empty;
-            winnerScore = 0;
-            var hasEntry = false;
-            foreach (var pair in _scores)
-            {
-                if (hasEntry && pair.Value <= winnerScore)
-                    continue;
-                hasEntry = true;
-                winnerId = pair.Key;
-                winnerScore = pair.Value;
-            }
-
-            return hasEntry;
-        }
+        public int GetScore(string playerId) => string.IsNullOrWhiteSpace(playerId) ? 0 : _scores.GetValueOrDefault(playerId, 0);
     }
 }

@@ -7,14 +7,14 @@ namespace CollectEggs.Shared.Messages
     [Serializable]
     public sealed class MatchStartedMessage : GameMessage
     {
-        public GameRulesSnapshot Rules;
-        public List<PlayerSpawnData> Players;
-        public List<EggSpawnData> Eggs;
+        public GameRulesSnapshot rules;
+        public List<PlayerSpawnData> players;
+        public List<EggSpawnData> eggs;
 
         public MatchStartedMessage()
         {
-            Players = new List<PlayerSpawnData>();
-            Eggs = new List<EggSpawnData>();
+            players = new List<PlayerSpawnData>();
+            eggs = new List<EggSpawnData>();
         }
     }
 }
