@@ -24,10 +24,10 @@ namespace CollectEggs.Server.Simulation
         public const int PlayerCount = 5;
         public int initialEggCount = 20;
         public float botSpawnRingRadius = 6f;
-        public float snapshotIntervalMinSeconds = 0.1f; //0.1f
-        public float snapshotIntervalMaxSeconds = 0.5f; //0.5f
-        public float simulatedTransportLatencyMinSeconds = 0.3f; //0.3
-        public float simulatedTransportLatencyMaxSeconds = 0.5f; //0.5
+        public float snapshotIntervalMinSeconds = 0; //0.1f
+        public float snapshotIntervalMaxSeconds = 0; //0.5f
+        public float simulatedTransportLatencyMinSeconds = 0; //0.3
+        public float simulatedTransportLatencyMaxSeconds = 0; //0.5
         public List<Vector3> playerSpawnPoints = new();
 
 

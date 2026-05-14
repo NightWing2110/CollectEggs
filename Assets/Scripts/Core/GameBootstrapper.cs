@@ -4,6 +4,7 @@ using CollectEggs.Gameplay.Players;
 using CollectEggs.Networking.Transport;
 using CollectEggs.Server.Adapters;
 using CollectEggs.Server.Simulation;
+using UI;
 using UnityEngine;
 
 namespace CollectEggs.Core
@@ -16,11 +17,15 @@ namespace CollectEggs.Core
 
         private ServerSimulationController _serverSimulationController;
         private IGameTransport _clientServerTransport;
+        private LatencyProfile _latencyProfile;
         private ClientGameController _client;
         private EggViewManager _eggView;
         private PlayerSpawner _playerSpawner;
+        private bool _isReadyToStart;
+        private bool _matchStarted;
 
         public IGameTransport ClientServerTransport => _clientServerTransport;
+        public bool CanStartMatch => _isReadyToStart && !_matchStarted;
 
         private void Start()
         {
@@ -36,21 +41,33 @@ namespace CollectEggs.Core
                 _eggView.SetEggPrefab(eggSpawner.EggPrefab);
             _client = context.ClientGameController;
             _client.SetDependencies(_playerSpawner, _eggView, context.EggCollectRequestController);
-            var latency = new LatencyProfile(
+            _latencyProfile = new LatencyProfile(
                 localServerConfig.simulatedTransportLatencyMinSeconds,
                 localServerConfig.simulatedTransportLatencyMaxSeconds);
-            _clientServerTransport = new SimulatedTransport(latency);
+            _clientServerTransport = new SimulatedTransport(_latencyProfile);
             _client.AttachTransport(_clientServerTransport, gm, context.MatchTimer);
             var worldQuery = new PhysicsServerWorldQuery(eggSpawner);
             var provider = new ServerSpawnPointProvider(localServerConfig, worldQuery);
             _serverSimulationController = new ServerSimulationController(localServerConfig, provider, _clientServerTransport);
-            _serverSimulationController.StartMatch();
+            var startScreen = GetComponent<StartGameScreen>() ?? gameObject.AddComponent<StartGameScreen>();
+            startScreen.Initialize(this);
+            var debugPanel = GetComponent<NetworkSimulationDebugPanel>() ?? gameObject.AddComponent<NetworkSimulationDebugPanel>();
+            debugPanel.Initialize(localServerConfig, _latencyProfile);
+            _isReadyToStart = true;
         }
 
         private void Update()
         {
             _clientServerTransport?.Tick(Time.deltaTime);
             _serverSimulationController?.Tick(Time.deltaTime);
+        }
+
+        public void StartLocalMatch()
+        {
+            if (_matchStarted || _serverSimulationController == null)
+                return;
+            _matchStarted = true;
+            _serverSimulationController.StartMatch();
         }
     }
 }

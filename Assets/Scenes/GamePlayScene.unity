@@ -642,10 +642,10 @@ MonoBehaviour:
     eggScoreValue: 1
     initialEggCount: 20
     botSpawnRingRadius: 6
-    snapshotIntervalMinSeconds: 0.1
-    snapshotIntervalMaxSeconds: 0.5
-    simulatedTransportLatencyMinSeconds: 0.3
-    simulatedTransportLatencyMaxSeconds: 0.5
+    snapshotIntervalMinSeconds: 0
+    snapshotIntervalMaxSeconds: 0
+    simulatedTransportLatencyMinSeconds: 0
+    simulatedTransportLatencyMaxSeconds: 0
     playerSpawnPoints: []
 --- !u!1 &900099990
 GameObject:
